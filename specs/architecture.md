@@ -14,12 +14,20 @@
 
 ## DBスキーマ（現状）
 
-個人利用のためユーザー管理なし。テーブルは2つのみ。
+個人利用のためユーザー管理なし。
 
 ```
 conversations  id, title, created_at, updated_at
 messages       id, conversation_id(FK), role, content, created_at
+
+tasks          id, title, description, status(todo/doing/done), priority(1-5),
+               due_date, completed_at, estimated_hours, actual_hours,
+               created_at, updated_at
+tags           id, name, description, color, created_at
+task_tags      task_id(FK→tasks), tag_id(FK→tags)  ※複合PK・両FK cascadeあり
 ```
+
+overdue（期限切れ）は DBカラムを持たず、サーバー側で `due_date < today && status != 'done'` で算出。
 
 マイグレーションファイル: `server/migrations/`  
 wrangler.toml に `migrations_dir = "server/migrations"` が必要（デフォルトの `migrations/` と異なる）

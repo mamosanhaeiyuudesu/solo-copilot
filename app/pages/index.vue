@@ -1,83 +1,91 @@
 <script setup lang="ts">
-import type { ChatMessage } from '~/types/api'
-
 const { isAuthed, checkAuth } = useAuth()
-const { streamText } = useStream()
-
-const messages = ref<ChatMessage[]>([])
-const input = ref('')
-const streaming = ref(false)
-const streamingText = ref('')
 
 onMounted(checkAuth)
 
-async function sendMessage() {
-  const text = input.value.trim()
-  if (!text || streaming.value) return
-
-  messages.value.push({ role: 'user', content: text })
-  input.value = ''
-  streaming.value = true
-  streamingText.value = ''
-
-  try {
-    await streamText('/api/agent/chat', { messages: messages.value }, (chunk) => {
-      streamingText.value += chunk
-    })
-    messages.value.push({ role: 'assistant', content: streamingText.value })
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : 'エラーが発生しました'
-    messages.value.push({ role: 'assistant', content: `エラー: ${msg}` })
-  } finally {
-    streaming.value = false
-    streamingText.value = ''
-  }
-}
+const tools = [
+  {
+    label: 'タスク管理',
+    description: '日々のタスクをカンバンで管理し、行動傾向を可視化する',
+    to: '/tasks',
+    icon: '◈',
+    available: true,
+    accent: 'from-amber-500/20 to-amber-900/5',
+    border: 'border-amber-700/50 hover:border-amber-500/70',
+    iconColor: 'text-amber-400',
+  },
+  {
+    label: 'チャット',
+    description: '自分のデータを知ったAIと対話し、思考を整理する',
+    to: null,
+    icon: '◎',
+    available: false,
+    accent: 'from-slate-700/10 to-slate-900/5',
+    border: 'border-slate-800/50',
+    iconColor: 'text-slate-600',
+  },
+  {
+    label: '健康管理',
+    description: 'Fitbitと食事ログで体調と行動の相関を把握する',
+    to: null,
+    icon: '◉',
+    available: false,
+    accent: 'from-slate-700/10 to-slate-900/5',
+    border: 'border-slate-800/50',
+    iconColor: 'text-slate-600',
+  },
+  {
+    label: '財務管理',
+    description: '収支と独立シミュレーションで夢への距離を数値化する',
+    to: null,
+    icon: '◆',
+    available: false,
+    accent: 'from-slate-700/10 to-slate-900/5',
+    border: 'border-slate-800/50',
+    iconColor: 'text-slate-600',
+  },
+]
 </script>
 
 <template>
   <div>
     <AuthModal v-if="!isAuthed" />
 
-    <div v-else class="flex flex-col gap-4">
-      <div class="space-y-4 min-h-64">
-        <div
-          v-for="(msg, i) in messages"
-          :key="i"
-          :class="[
-            'rounded-lg px-4 py-3 max-w-2xl',
-            msg.role === 'user'
-              ? 'bg-blue-600 text-white ml-auto'
-              : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white',
-          ]"
-        >
-          <p class="whitespace-pre-wrap">{{ msg.content }}</p>
-        </div>
-
-        <div
-          v-if="streaming && streamingText"
-          class="rounded-lg px-4 py-3 max-w-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-        >
-          <p class="whitespace-pre-wrap">{{ streamingText }}</p>
-        </div>
+    <div v-else class="py-4">
+      <div class="mb-10">
+        <h1 class="text-3xl font-black text-slate-50 tracking-tight">
+          ダッシュボード
+        </h1>
+        <p class="mt-2 text-slate-500">データを通じて自分を深く知り、夢の実現までを伴走するAI</p>
       </div>
 
-      <form class="flex gap-2" @submit.prevent="sendMessage">
-        <input
-          v-model="input"
-          type="text"
-          placeholder="メッセージを入力..."
-          :disabled="streaming"
-          class="flex-1 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-        />
-        <button
-          type="submit"
-          :disabled="streaming || !input.trim()"
-          class="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-4 py-2 rounded-md transition-colors"
+      <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <component
+          :is="tool.available ? resolveComponent('NuxtLink') : 'div'"
+          v-for="tool in tools"
+          :key="tool.label"
+          :to="tool.available ? tool.to : undefined"
+          :class="[
+            'group relative block rounded-2xl p-6 border bg-gradient-to-br transition-all duration-200',
+            tool.accent,
+            tool.border,
+            tool.available ? 'cursor-pointer hover:shadow-lg hover:shadow-amber-900/20 hover:-translate-y-0.5' : 'cursor-default opacity-50',
+          ]"
         >
-          送信
-        </button>
-      </form>
+          <div :class="['text-2xl mb-4 font-bold', tool.iconColor]">{{ tool.icon }}</div>
+          <div class="font-bold text-slate-200 mb-1">{{ tool.label }}</div>
+          <div class="text-xs text-slate-500 leading-relaxed">{{ tool.description }}</div>
+          <div v-if="!tool.available" class="mt-3">
+            <span class="text-xs text-slate-600 font-medium tracking-wider uppercase">Coming Soon</span>
+          </div>
+          <div
+            v-if="tool.available"
+            class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity text-amber-400/60 text-sm"
+          >
+            →
+          </div>
+        </component>
+      </div>
     </div>
   </div>
 </template>

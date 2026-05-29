@@ -21,34 +21,43 @@ async function submit() {
 </script>
 
 <template>
-  <div class="max-w-xs mx-auto mt-24 p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
-    <h2 class="text-xl font-bold mb-6 text-gray-900 dark:text-white text-center">
-      solo-copilot
-    </h2>
-
-    <form class="space-y-4" @submit.prevent="submit">
-      <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          パスワード
-        </label>
-        <input
-          v-model="password"
-          type="password"
-          required
-          autofocus
-          class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+  <div class="flex items-center justify-center min-h-[60vh]">
+    <div class="w-full max-w-sm">
+      <div class="text-center mb-8">
+        <div class="text-amber-400 font-black text-3xl tracking-widest mb-2">MY AGENT</div>
+        <p class="text-slate-500 text-sm">データを通じて自分を深く知るAI</p>
       </div>
 
-      <p v-if="error" class="text-red-500 text-sm text-center">{{ error }}</p>
+      <div class="bg-[#0D1526] border border-amber-900/30 rounded-2xl p-8">
+        <form class="space-y-4" @submit.prevent="submit">
+          <div>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+              パスワード
+            </label>
+            <UInput
+              v-model="password"
+              type="password"
+              placeholder="••••••••"
+              autofocus
+              size="lg"
+              class="w-full"
+            />
+          </div>
 
-      <button
-        type="submit"
-        :disabled="loading || !password"
-        class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-md py-2 transition-colors"
-      >
-        {{ loading ? '確認中...' : '入室' }}
-      </button>
-    </form>
+          <p v-if="error" class="text-red-400 text-sm text-center">{{ error }}</p>
+
+          <UButton
+            type="submit"
+            :disabled="loading || !password"
+            :loading="loading"
+            color="primary"
+            size="lg"
+            class="w-full justify-center"
+          >
+            入室
+          </UButton>
+        </form>
+      </div>
+    </div>
   </div>
 </template>

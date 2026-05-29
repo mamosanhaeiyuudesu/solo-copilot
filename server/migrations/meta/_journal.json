@@ -15,6 +15,13 @@
       "when": 1780046518191,
       "tag": "0001_flawless_sugar_man",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1780062457216,
+      "tag": "0002_puzzling_mandarin",
+      "breakpoints": true
     }
   ]
 }

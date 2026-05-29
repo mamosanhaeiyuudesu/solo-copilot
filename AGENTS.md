@@ -36,6 +36,19 @@ solo-copilot/
 | DBアクセスヘルパー | `server/utils/db.ts` |
 | フロントエンド認証状態 | `app/composables/useAuth.ts` |
 | AIストリーミング読み取り | `app/composables/useStream.ts` |
+| タスクAPI（一覧・作成） | `server/api/tasks/index.get.ts` / `index.post.ts` |
+| タスクAPI（詳細・更新・削除） | `server/api/tasks/[id].get.ts` / `[id].put.ts` / `[id].delete.ts` |
+| タスクAPI（ステータス変更） | `server/api/tasks/[id]/status.patch.ts` |
+| タグAPI（一覧・作成・更新・削除） | `server/api/tags/index.get.ts` 等 |
+| タスク↔タグ付与・解除 | `server/api/tasks/[id]/tags/index.post.ts` / `[tag_id].delete.ts` |
+| タスクAPI composable | `app/composables/useTasks.ts` |
+| ダッシュボード | `app/pages/index.vue` |
+| カンバンボード | `app/pages/tasks.vue` |
+| タスクカード | `app/components/tasks/TaskCard.vue` |
+| タスク作成・編集モーダル | `app/components/tasks/TaskModal.vue` |
+| 完了モーダル | `app/components/tasks/CompletionModal.vue` |
+| タグ管理モーダル | `app/components/tasks/TagModal.vue` |
+| 幅広レイアウト（カンバン用） | `app/layouts/wide.vue` |
 | 新機能スペック作成 | `specs/features/_template.md` をコピー |
 | 技術決定の背景（ADR） | `specs/architecture.md` |
 
