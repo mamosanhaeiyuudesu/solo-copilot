@@ -22,15 +22,46 @@ solo-copilot/
 └── wrangler.toml
 ```
 
+## ファイルルーティングテーブル
+
+| やりたいこと | ファイル |
+|---|---|
+| AIチャットAPI（Claude） | `server/api/agent/chat.post.ts` |
+| Claude設定・ストリーミングラッパー | `server/utils/claude.ts` |
+| OpenAI設定・ストリーミングラッパー | `server/utils/openai.ts` |
+| Gemini設定・ストリーミングラッパー | `server/utils/gemini.ts` |
+| DBスキーマ変更 | `server/db/schema.ts` → `db:generate` → `db:migrate` |
+| 認証ミドルウェア（全API保護） | `server/middleware/auth.ts` |
+| 認証ユーティリティ（Cookie操作） | `server/utils/auth.ts` |
+| DBアクセスヘルパー | `server/utils/db.ts` |
+| フロントエンド認証状態 | `app/composables/useAuth.ts` |
+| AIストリーミング読み取り | `app/composables/useStream.ts` |
+| 新機能スペック作成 | `specs/features/_template.md` をコピー |
+| 技術決定の背景（ADR） | `specs/architecture.md` |
+
 ## 開発コマンド
 
 ```bash
-yarn dev:ui      # UIのみ（D1なし、HMR）
-yarn dev         # ビルド後 wrangler dev --remote（D1あり）
+yarn dev:ui      # UIのみ（HMR、D1なし）→ http://localhost:3000
+yarn dev         # ビルド→wrangler dev --remote（D1あり）→ http://localhost:8787
+yarn build       # Cloudflare Workers向けビルド
 yarn deploy      # ビルド＋Cloudflare デプロイ
 yarn db:generate # スキーマ変更後に必ず実行
 yarn db:migrate  # リモートD1にマイグレーション適用
-yarn wrangler d1 execute solo-copilot-db --remote --command "SELECT ..."  # DB直接操作
+
+# wrangler を直接叩く場合（グローバルは使わない）
+yarn wrangler d1 execute solo-copilot-db --remote --command "SELECT ..."
+```
+
+## 環境変数
+
+`.env` に設定（コミット禁止）。本番は `wrangler secret put` で設定。
+
+```
+NUXT_ANTHROPIC_API_KEY=
+NUXT_OPENAI_API_KEY=
+NUXT_GEMINI_API_KEY=
+NUXT_ENCRYPTION_KEY=
 ```
 
 ## コーディングスタイル
@@ -58,7 +89,7 @@ export default defineEventHandler(async (event) => {
 ```
 
 `getDb()` は `event.context.cloudflare.env.DB` が存在しない場合 503 を返す。
-`nuxt dev`（dev:ui）では D1 は利用不可。D1 が必要な API は `npm run dev` で確認。
+`nuxt dev`（dev:ui）では D1 は利用不可。D1 が必要な API は `yarn dev` で確認。
 
 ## AIストリーミングパターン（Claude）
 
@@ -89,8 +120,8 @@ export default defineEventHandler(async (event) => {
 ## スキーマ変更フロー
 
 1. `server/db/schema.ts` を編集
-2. `npm run db:generate`（`server/migrations/` にSQL生成）
-3. `npm run db:migrate`（リモートD1に適用）
+2. `yarn db:generate`（`server/migrations/` にSQL生成）
+3. `yarn db:migrate`（リモートD1に適用）
 4. 対応する `specs/features/NNN.md` を更新
 
 ## 認証パターン
@@ -107,5 +138,10 @@ export default defineEventHandler(async (event) => {
 
 ## スペック駆動開発
 
-新機能を追加する前に必ず `specs/features/_template.md` をコピーしてスペックを作成すること。
-受入れ基準に基づいて実装し、完了後にスペックのステータスを `Done` に更新する。
+**新機能追加の手順:**
+1. `specs/features/_template.md` をコピーして連番ファイルを作成
+2. 受入れ基準・APIルート・DBスキーマ変更を記述
+3. 型定義→DBスキーマ→API→フロントの順で実装
+4. `yarn dev` で受入れ基準を手動確認
+5. スペックのステータスを `Done` に更新
+6. `AGENTS.md` のファイルルーティングテーブルを更新
