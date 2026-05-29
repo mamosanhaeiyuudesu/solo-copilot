@@ -1,0 +1,23 @@
+name = "solo-copilot"
+main = ".output/server/index.mjs"
+compatibility_date = "2026-05-29"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# 非シークレット変数はここに。シークレットは以下で設定:
+#   wrangler secret put NUXT_ANTHROPIC_API_KEY
+#   wrangler secret put NUXT_OPENAI_API_KEY
+#   wrangler secret put NUXT_GEMINI_API_KEY
+#   wrangler secret put NUXT_ENCRYPTION_KEY
+
+[[d1_databases]]
+binding = "DB"
+database_name = "solo-copilot-db"
+database_id = "083a23ee-d17f-4c71-9528-42fa272518b8"
+migrations_dir = "server/migrations"
+# 初回セットアップ:
+#   wrangler d1 create solo-copilot-db
+# 出力の database_id を上の YOUR_D1_DATABASE_ID_HERE に置き換える
+
+[assets]
+directory = ".output/public"

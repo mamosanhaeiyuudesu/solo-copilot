@@ -1,0 +1,28 @@
+{
+  "name": "solo-copilot",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:ui": "nuxt dev",
+    "build": "nuxt build",
+    "dev": "npm run build && wrangler dev --remote",
+    "deploy": "npm run build && wrangler deploy",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "wrangler d1 migrations apply solo-copilot-db --remote",
+    "wrangler": "wrangler"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.51.0",
+    "@google/generative-ai": "^0.24.0",
+    "drizzle-orm": "^0.42.0",
+    "nuxt": "^3.16.0",
+    "openai": "^4.85.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250525.0",
+    "@nuxt/ui": "^3.0.0",
+    "drizzle-kit": "^0.30.0",
+    "typescript": "^5.7.0",
+    "wrangler": "^4.0.0"
+  }
+}

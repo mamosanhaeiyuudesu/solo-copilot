@@ -1,0 +1,24 @@
+node_modules/
+.output/
+.nuxt/
+.wrangler/
+dist/
+
+# Yarn
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# 環境変数（コミット禁止）
+.env
+.env.local
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
