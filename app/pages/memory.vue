@@ -2,7 +2,7 @@
 const { isAuthed, checkAuth } = useAuth()
 
 type Polarity = 'positive' | 'negative' | 'neutral'
-type SourceType = 'raw_external_data' | 'task'
+type SourceType = 'imported_file' | 'task'
 type PeriodType = 'weekly' | 'monthly' | 'yearly' | 'manual' | 'past'
 
 interface IntermediateRecord {
@@ -192,7 +192,7 @@ onMounted(async () => {
             @change="fetchIntermediate"
           >
             <option value="">ソース: すべて</option>
-            <option value="raw_external_data">外部データ</option>
+            <option value="imported_file">外部データ</option>
             <option value="task">タスク</option>
           </select>
           <input

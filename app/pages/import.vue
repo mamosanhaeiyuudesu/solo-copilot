@@ -4,11 +4,9 @@ const { isAuthed, checkAuth } = useAuth()
 type BatchStatus = 'pending' | 'processing' | 'done' | 'error'
 type DisplayStatus = BatchStatus | 'local-uploading' | 'local-processing' | 'local-error'
 
-interface ImportBatch {
+interface ImportedFile {
   id: string
   fileName: string
-  totalCount: number
-  processedCount: number
   status: BatchStatus
   createdAt: string
   updatedAt: string
@@ -30,7 +28,7 @@ interface DisplayItem {
 }
 
 const processingFiles = ref(new Map<string, ProcessingFile>())
-const batches = ref<ImportBatch[]>([])
+const batches = ref<ImportedFile[]>([])
 const loadingBatches = ref(false)
 
 const showPasteModal = ref(false)
@@ -117,8 +115,8 @@ function addPastedText() {
 async function fetchBatches() {
   loadingBatches.value = true
   try {
-    const res = await $fetch<{ batches: ImportBatch[] }>('/api/import/batches')
-    batches.value = res.batches
+    const res = await $fetch<{ files: ImportedFile[] }>('/api/import/files')
+    batches.value = res.files
   }
   catch {
     // D1なし環境では無視

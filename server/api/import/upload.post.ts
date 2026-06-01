@@ -1,5 +1,5 @@
 import { getDb } from '../../utils/db'
-import { importBatches, rawExternalData } from '../../db/schema'
+import { importedFiles } from '../../db/schema'
 
 export default defineEventHandler(async (event) => {
   const db = getDb(event)
@@ -9,31 +9,18 @@ export default defineEventHandler(async (event) => {
   const files = formData.filter((f) => f.name === 'files' && f.filename)
   if (files.length === 0) throw createError({ statusCode: 400, statusMessage: 'ファイルがありません' })
 
-  const createdBatchIds: string[] = []
+  const createdIds: string[] = []
 
   for (const file of files) {
-    const batchId = crypto.randomUUID()
-    const fileName = file.filename!
-    const content = file.data.toString('utf-8')
-
-    await db.insert(importBatches).values({
-      id: batchId,
-      fileName,
-      totalCount: 1,
-      processedCount: 0,
+    const id = crypto.randomUUID()
+    await db.insert(importedFiles).values({
+      id,
+      fileName: file.filename!,
+      content: file.data.toString('utf-8'),
       status: 'pending',
     })
-
-    await db.insert(rawExternalData).values({
-      id: crypto.randomUUID(),
-      batchId,
-      fileName,
-      content,
-      status: 'pending',
-    })
-
-    createdBatchIds.push(batchId)
+    createdIds.push(id)
   }
 
-  return { batchIds: createdBatchIds }
+  return { ids: createdIds }
 })

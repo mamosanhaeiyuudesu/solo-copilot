@@ -56,8 +56,6 @@ multipart/form-data:
     id: string
     fileName: string
     sourceType: string
-    totalCount: number
-    processedCount: number
     status: string
     createdAt: string
   }>
@@ -69,7 +67,7 @@ multipart/form-data:
 ```typescript
 // import_batches: インポートバッチ管理（1ファイル = 1バッチ）
 importBatches: {
-  id, fileName, sourceType, totalCount, processedCount, status, createdAt, updatedAt
+  id, fileName, status, createdAt, updatedAt
 }
 
 // raw_external_data: 外部データ生データ

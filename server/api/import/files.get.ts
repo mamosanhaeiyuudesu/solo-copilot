@@ -1,14 +1,14 @@
 import { desc } from 'drizzle-orm'
 import { getDb } from '../../utils/db'
-import { importBatches } from '../../db/schema'
+import { importedFiles } from '../../db/schema'
 
 export default defineEventHandler(async (event) => {
   const db = getDb(event)
-  const batches = await db
+  const files = await db
     .select()
-    .from(importBatches)
-    .orderBy(desc(importBatches.createdAt))
+    .from(importedFiles)
+    .orderBy(desc(importedFiles.createdAt))
     .all()
 
-  return { batches }
+  return { files }
 })

@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm'
 import { getDb } from '../../utils/db'
-import { rawExternalData, importBatches, intermediateRecords, extractionLogs } from '../../db/schema'
+import { importedFiles, intermediateRecords, extractionLogs } from '../../db/schema'
 import { getClaudeClient } from '../../utils/claude'
 import { extractIntermediateItems } from '../../utils/extraction'
 
@@ -8,18 +8,18 @@ export default defineEventHandler(async (event) => {
   const db = getDb(event)
   const claude = getClaudeClient(event)
 
-  const pending = await db.select().from(rawExternalData).where(eq(rawExternalData.status, 'pending')).all()
+  const pending = await db.select().from(importedFiles).where(eq(importedFiles.status, 'pending')).all()
 
   const result = { success: 0, error: 0, skipped: 0, total: pending.length }
 
-  for (const record of pending) {
+  for (const file of pending) {
     const existingLog = await db
       .select()
       .from(extractionLogs)
       .where(
         and(
-          eq(extractionLogs.sourceId, record.id),
-          eq(extractionLogs.sourceType, 'raw_external_data'),
+          eq(extractionLogs.sourceId, file.id),
+          eq(extractionLogs.sourceType, 'imported_file'),
         ),
       )
       .get()
@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-      const items = await extractIntermediateItems(claude, record.content)
+      const items = await extractIntermediateItems(claude, file.content)
 
       let firstRecordId: string | null = null
 
@@ -40,46 +40,29 @@ export default defineEventHandler(async (event) => {
 
         await db.insert(intermediateRecords).values({
           id,
-          sourceId: record.id,
-          sourceType: 'raw_external_data',
+          sourceId: file.id,
+          sourceType: 'imported_file',
           date: item.date ?? null,
           polarity: item.polarity,
           tag: item.tag,
           what: item.what,
-          why: item.why,
-          summary: item.summary,
           intensity: Math.min(5, Math.max(1, Math.round(item.intensity))),
         })
       }
 
       await db.insert(extractionLogs).values({
         id: crypto.randomUUID(),
-        sourceId: record.id,
-        sourceType: 'raw_external_data',
+        sourceId: file.id,
+        sourceType: 'imported_file',
         intermediateRecordId: firstRecordId,
       })
 
-      await db.update(rawExternalData).set({ status: 'done' }).where(eq(rawExternalData.id, record.id))
-
-      // バッチのprocessedCountとstatusを更新
-      const batch = await db.select().from(importBatches).where(eq(importBatches.id, record.batchId)).get()
-      if (batch) {
-        const newProcessedCount = batch.processedCount + 1
-        const newStatus = newProcessedCount >= batch.totalCount ? 'done' : 'processing'
-        await db
-          .update(importBatches)
-          .set({ processedCount: newProcessedCount, status: newStatus })
-          .where(eq(importBatches.id, record.batchId))
-      }
+      await db.update(importedFiles).set({ status: 'done' }).where(eq(importedFiles.id, file.id))
 
       result.success++
     }
     catch {
-      await db.update(rawExternalData).set({ status: 'error' }).where(eq(rawExternalData.id, record.id))
-      await db
-        .update(importBatches)
-        .set({ status: 'error' })
-        .where(eq(importBatches.id, record.batchId))
+      await db.update(importedFiles).set({ status: 'error' }).where(eq(importedFiles.id, file.id))
       result.error++
     }
   }
