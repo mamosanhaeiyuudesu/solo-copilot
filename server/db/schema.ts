@@ -3,6 +3,15 @@ import { sql } from 'drizzle-orm'
 
 // 個人利用のためユーザー管理なし。パスワード認証のみ。
 
+// 音声入力の文字起こし履歴。保存後にAI抽出で中間データへ変換される。
+export const voiceRecords = sqliteTable('voice_records', {
+  id: text('id').primaryKey(),
+  transcript: text('transcript').notNull(),
+  duration: integer('duration'),
+  extractionStatus: text('extraction_status', { enum: ['pending', 'done', 'error'] }).notNull().default('pending'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+})
+
 // AIとのチャット会話セッション。将来的にAIへの相談履歴を長期記憶の入力源として使う想定。
 export const conversations = sqliteTable('conversations', {
   id: text('id').primaryKey(),
@@ -68,7 +77,7 @@ export const importedFiles = sqliteTable('imported_files', {
 export const intermediateRecords = sqliteTable('intermediate_records', {
   id: text('id').primaryKey(),
   sourceId: text('source_id'),
-  sourceType: text('source_type', { enum: ['imported_file', 'task'] }),
+  sourceType: text('source_type', { enum: ['imported_file', 'task', 'voice_record'] }),
   date: text('date'),
   polarity: text('polarity', { enum: ['positive', 'negative', 'neutral'] }),
   tag: text('tag'),
@@ -81,7 +90,7 @@ export const intermediateRecords = sqliteTable('intermediate_records', {
 export const extractionLogs = sqliteTable('extraction_logs', {
   id: text('id').primaryKey(),
   sourceId: text('source_id').notNull(),
-  sourceType: text('source_type', { enum: ['imported_file', 'task'] }).notNull(),
+  sourceType: text('source_type', { enum: ['imported_file', 'task', 'voice_record'] }).notNull(),
   intermediateRecordId: text('intermediate_record_id').references(() => intermediateRecords.id),
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 }, (t) => ({

@@ -3,9 +3,13 @@ const { isAuthed, logout } = useAuth()
 const route = useRoute()
 
 const navItems = [
-  { label: 'タスク', to: '/tasks', icon: '◈' },
-  { label: 'インポート', to: '/import', icon: '⇩' },
-  { label: 'メモリ', to: '/memory', icon: '◉' },
+  { label: 'タスク管理', to: '/tasks', icon: '◈' },
+  { label: 'チャット', to: null, icon: '◎' },
+  { label: '音声入力', to: '/voice', icon: '◉' },
+  { label: 'データ取込', to: '/import', icon: '⊕' },
+  { label: '健康管理', to: null, icon: '◉' },
+  { label: '財務管理', to: null, icon: '◆' },
+  { label: '長期記憶ビューア', to: '/memory', icon: '◑' },
 ]
 </script>
 
@@ -18,20 +22,28 @@ const navItems = [
         </NuxtLink>
 
         <nav v-if="isAuthed" class="flex items-center gap-1">
-          <NuxtLink
-            v-for="item in navItems"
-            :key="item.to"
-            :to="item.to"
-            :class="[
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
-              route.path === item.to
-                ? 'bg-amber-400/10 text-amber-400'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5',
-            ]"
-          >
-            <span class="text-xs">{{ item.icon }}</span>
-            {{ item.label }}
-          </NuxtLink>
+          <template v-for="item in navItems" :key="item.label">
+            <NuxtLink
+              v-if="item.to"
+              :to="item.to"
+              :class="[
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors',
+                route.path === item.to
+                  ? 'bg-amber-400/10 text-amber-400'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/5',
+              ]"
+            >
+              <span class="text-xs">{{ item.icon }}</span>
+              {{ item.label }}
+            </NuxtLink>
+            <span
+              v-else
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-slate-700 cursor-default"
+            >
+              <span class="text-xs">{{ item.icon }}</span>
+              {{ item.label }}
+            </span>
+          </template>
         </nav>
       </div>
 
