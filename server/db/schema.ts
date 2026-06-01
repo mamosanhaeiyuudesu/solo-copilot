@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, primaryKey } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, real, primaryKey, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
 
 // ユーザー管理なし（個人利用のためパスワード認証のみ）
@@ -46,3 +46,60 @@ export const taskTags = sqliteTable('task_tags', {
 }, (t) => ({
   pk: primaryKey({ columns: [t.taskId, t.tagId] }),
 }))
+
+export const importBatches = sqliteTable('import_batches', {
+  id: text('id').primaryKey(),
+  fileName: text('file_name').notNull(),
+  totalCount: integer('total_count').notNull().default(0),
+  processedCount: integer('processed_count').notNull().default(0),
+  status: text('status', { enum: ['pending', 'processing', 'done', 'error'] }).notNull().default('pending'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
+})
+
+export const rawExternalData = sqliteTable('raw_external_data', {
+  id: text('id').primaryKey(),
+  batchId: text('batch_id').notNull().references(() => importBatches.id, { onDelete: 'cascade' }),
+  fileName: text('file_name').notNull(),
+  content: text('content').notNull(),
+  status: text('status', { enum: ['pending', 'done', 'error'] }).notNull().default('pending'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+})
+
+export const intermediateRecords = sqliteTable('intermediate_records', {
+  id: text('id').primaryKey(),
+  sourceId: text('source_id'),
+  sourceType: text('source_type', { enum: ['raw_external_data', 'task'] }),
+  date: text('date'),
+  polarity: text('polarity', { enum: ['positive', 'negative', 'neutral'] }),
+  tag: text('tag'),
+  what: text('what'),
+  intensity: integer('intensity'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+})
+
+export const extractionLogs = sqliteTable('extraction_logs', {
+  id: text('id').primaryKey(),
+  sourceId: text('source_id').notNull(),
+  sourceType: text('source_type', { enum: ['raw_external_data', 'task'] }).notNull(),
+  intermediateRecordId: text('intermediate_record_id').references(() => intermediateRecords.id),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+}, (t) => ({
+  sourceUnique: uniqueIndex('extraction_logs_source_unique').on(t.sourceId, t.sourceType),
+}))
+
+export const memorySnapshots = sqliteTable('memory_snapshots', {
+  id: text('id').primaryKey(),
+  periodType: text('period_type', { enum: ['weekly', 'monthly', 'yearly', 'manual', 'past'] }).notNull(),
+  periodStart: text('period_start'),
+  periodEnd: text('period_end'),
+  achievements: text('achievements'),
+  struggles: text('struggles'),
+  interests: text('interests'),
+  aiSummary: text('ai_summary'),
+  recommendedFocus: text('recommended_focus'),
+  integratedAdvice: text('integrated_advice'),
+  financeSummary: text('finance_summary'),
+  healthTrend: text('health_trend'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+})

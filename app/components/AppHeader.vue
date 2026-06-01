@@ -4,6 +4,8 @@ const route = useRoute()
 
 const navItems = [
   { label: 'タスク', to: '/tasks', icon: '◈' },
+  { label: 'インポート', to: '/import', icon: '⇩' },
+  { label: 'メモリ', to: '/memory', icon: '◉' },
 ]
 </script>
 

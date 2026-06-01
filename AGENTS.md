@@ -44,18 +44,28 @@ solo-copilot/
 | タスクAPI composable | `app/composables/useTasks.ts` |
 | ダッシュボード | `app/pages/index.vue` |
 | カンバンボード | `app/pages/tasks.vue` |
+| 外部データ取り込みページ | `app/pages/import.vue` |
+| 長期記憶ビューアページ | `app/pages/memory.vue` |
 | タスクカード | `app/components/tasks/TaskCard.vue` |
 | タスク作成・編集モーダル | `app/components/tasks/TaskModal.vue` |
 | 完了モーダル | `app/components/tasks/CompletionModal.vue` |
 | タグ管理モーダル | `app/components/tasks/TagModal.vue` |
 | 幅広レイアウト（カンバン用） | `app/layouts/wide.vue` |
+| インポートAPI（ファイルアップロード） | `server/api/import/upload.post.ts` |
+| インポートAPI（バッチ一覧） | `server/api/import/batches.get.ts` |
+| インポートAPI（未処理データ→中間情報） | `server/api/import/process.post.ts` |
+| インポートAPI（タスク→中間情報） | `server/api/import/process-tasks.post.ts` |
+| Claude抽出ロジック（中間情報生成） | `server/utils/extraction.ts` |
+| 中間情報API | `server/api/memory/intermediate.get.ts` |
+| スナップショットAPI（一覧） | `server/api/memory/snapshots.get.ts` |
+| スナップショットAPI（詳細） | `server/api/memory/snapshots/[id].get.ts` |
 | 新機能スペック作成 | `specs/features/_template.md` をコピー |
 | 技術決定の背景（ADR） | `specs/architecture.md` |
 
 ## 開発コマンド
 
 ```bash
-yarn dev:ui      # UIのみ（HMR、D1なし）→ http://localhost:3000
+yarn dev:ui      # UIのみ（HMR、D1なし）→ http://localhost:3010
 yarn dev         # ビルド→wrangler dev --remote（D1あり）→ http://localhost:8787
 yarn build       # Cloudflare Workers向けビルド
 yarn deploy      # ビルド＋Cloudflare デプロイ
@@ -139,13 +149,16 @@ export default defineEventHandler(async (event) => {
 
 ## 認証パターン
 
+認証は `server/middleware/auth.ts` が全APIルートを一括保護している。各APIルートで個別チェックは不要。
+手動チェックが必要な場合は `isAuthenticated` を使う。
+
 ```typescript
-import { getSessionUser } from '~/server/utils/auth'
+import { isAuthenticated } from '~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
-  const user = await getSessionUser(event)
-  if (!user) throw createError({ statusCode: 401, statusMessage: '認証が必要です' })
-  // user.id, user.username が使える
+  if (!await isAuthenticated(event)) {
+    throw createError({ statusCode: 401, statusMessage: '認証が必要です' })
+  }
 })
 ```
 

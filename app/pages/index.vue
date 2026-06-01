@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { isAuthed, checkAuth } = useAuth()
+const NuxtLink = resolveComponent('NuxtLink')
 
 onMounted(checkAuth)
 
@@ -13,6 +14,26 @@ const tools = [
     accent: 'from-amber-500/20 to-amber-900/5',
     border: 'border-amber-700/50 hover:border-amber-500/70',
     iconColor: 'text-amber-400',
+  },
+  {
+    label: '外部データ取り込み',
+    description: 'ChatGPT・Claude・日記などのログをインポートし、AIの素材にする',
+    to: '/import',
+    icon: '⊕',
+    available: true,
+    accent: 'from-sky-500/20 to-sky-900/5',
+    border: 'border-sky-700/50 hover:border-sky-500/70',
+    iconColor: 'text-sky-400',
+  },
+  {
+    label: '長期記憶ビューア',
+    description: '中間情報・長期記憶スナップショットを閲覧し、自己理解を深める',
+    to: '/memory',
+    icon: '◑',
+    available: true,
+    accent: 'from-violet-500/20 to-violet-900/5',
+    border: 'border-violet-700/50 hover:border-violet-500/70',
+    iconColor: 'text-violet-400',
   },
   {
     label: 'チャット',
@@ -59,9 +80,9 @@ const tools = [
         <p class="mt-2 text-slate-500">データを通じて自分を深く知り、夢の実現までを伴走するAI</p>
       </div>
 
-      <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <component
-          :is="tool.available ? resolveComponent('NuxtLink') : 'div'"
+          :is="tool.available ? NuxtLink : 'div'"
           v-for="tool in tools"
           :key="tool.label"
           :to="tool.available ? tool.to : undefined"

@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev:ui": "nuxt dev",
+    "dev:ui": "nuxt dev --port 3010",
     "build": "nuxt build",
     "dev": "npm run build && wrangler dev --remote",
     "deploy": "npm run build && wrangler deploy",
