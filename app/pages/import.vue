@@ -7,6 +7,7 @@ type DisplayStatus = BatchStatus | 'local-uploading' | 'local-processing' | 'loc
 interface ImportedFile {
   id: string
   fileName: string
+  content: string
   status: BatchStatus
   createdAt: string
   updatedAt: string
@@ -22,6 +23,7 @@ interface ProcessingFile {
 interface DisplayItem {
   id: string
   fileName: string
+  size?: number
   status: DisplayStatus
   createdAt: string
   errorMessage?: string
@@ -31,8 +33,16 @@ const processingFiles = ref(new Map<string, ProcessingFile>())
 const batches = ref<ImportedFile[]>([])
 const loadingBatches = ref(false)
 
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${bytes} B`
+}
+
 const showPasteModal = ref(false)
 const pasteText = ref('')
+const pasteName = ref('')
+const pasteDate = ref('')
 
 const statusLabel: Record<DisplayStatus, string> = {
   'local-uploading': 'アップロード中',
@@ -61,7 +71,14 @@ const displayItems = computed<DisplayItem[]>(() => {
     createdAt: f.startedAt,
     errorMessage: f.errorMessage,
   }))
-  return [...local, ...batches.value]
+  const db: DisplayItem[] = batches.value.map(f => ({
+    id: f.id,
+    fileName: f.fileName,
+    size: new TextEncoder().encode(f.content).length,
+    status: f.status,
+    createdAt: f.createdAt,
+  }))
+  return [...local, ...db]
 })
 
 async function processFile(file: File) {
@@ -104,10 +121,14 @@ function onFileChange(event: Event) {
 
 function addPastedText() {
   const text = pasteText.value.trim()
-  if (!text) return
-  const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')
-  const file = new File([text], `paste-${timestamp}.txt`, { type: 'text/plain' })
+  const name = pasteName.value.trim()
+  const date = pasteDate.value.trim()
+  if (!text || !name || !date) return
+  const content = `[参考期間: ${date}]\n---\n${text}`
+  const file = new File([content], `${name}.txt`, { type: 'text/plain' })
   pasteText.value = ''
+  pasteName.value = ''
+  pasteDate.value = ''
   showPasteModal.value = false
   processFile(file)
 }
@@ -195,9 +216,12 @@ onMounted(async () => {
                   {{ item.fileName }}
                 </td>
                 <td class="px-4 py-3">
-                  <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', statusColor[item.status]]">
-                    {{ statusLabel[item.status] }}
-                  </span>
+                  <div class="flex items-center gap-2">
+                    <span v-if="item.size != null" class="text-slate-500 text-xs tabular-nums">{{ formatBytes(item.size) }}</span>
+                    <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', statusColor[item.status]]">
+                      {{ statusLabel[item.status] }}
+                    </span>
+                  </div>
                 </td>
                 <td class="px-4 py-3 text-slate-600 text-xs">{{ item.createdAt.slice(0, 16).replace('T', ' ') }}</td>
               </tr>
@@ -208,30 +232,49 @@ onMounted(async () => {
     </div>
 
     <!-- テキスト貼り付けモーダル -->
-    <div v-if="showPasteModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="showPasteModal = false; pasteText = ''">
+    <div v-if="showPasteModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="showPasteModal = false; pasteText = ''; pasteName = ''; pasteDate = ''">
       <div class="rounded-2xl border border-slate-700 bg-slate-900 p-6 w-full max-w-lg mx-4 space-y-4">
         <h3 class="text-slate-100 font-semibold">テキストを貼り付け</h3>
         <p class="text-slate-500 text-xs">テキストをそのまま貼り付けてください。.txt ファイルとしてインポートされます。</p>
+        <div class="flex gap-3">
+          <div class="flex-1">
+            <label class="block text-xs text-slate-400 mb-1">ファイル名 <span class="text-red-400">*</span></label>
+            <input
+              v-model="pasteName"
+              type="text"
+              class="w-full rounded-xl border border-slate-700 bg-slate-800/60 text-slate-300 text-sm px-3 py-2 focus:outline-none focus:border-sky-600 placeholder:text-slate-600"
+              placeholder="例: ChatGPT会話ログ_2024"
+            >
+          </div>
+          <div class="w-40">
+            <label class="block text-xs text-slate-400 mb-1">内容の日時 <span class="text-red-400">*</span></label>
+            <input
+              v-model="pasteDate"
+              type="text"
+              class="w-full rounded-xl border border-slate-700 bg-slate-800/60 text-slate-300 text-sm px-3 py-2 focus:outline-none focus:border-sky-600 placeholder:text-slate-600"
+              placeholder="例: 2016年1月あたり"
+            >
+          </div>
+        </div>
         <textarea
           v-model="pasteText"
           class="w-full h-48 rounded-xl border border-slate-700 bg-slate-800/60 text-slate-300 text-sm p-3 resize-none focus:outline-none focus:border-sky-600 placeholder:text-slate-600"
           placeholder="ここにテキストを貼り付けてください…"
-          autofocus
         />
         <div class="flex gap-3">
           <button
             type="button"
             class="flex-1 rounded-xl border border-slate-700 py-2 text-sm text-slate-400 hover:text-slate-200 transition-colors"
-            @click="showPasteModal = false; pasteText = ''"
+            @click="showPasteModal = false; pasteText = ''; pasteName = ''; pasteDate = ''"
           >
             キャンセル
           </button>
           <button
             type="button"
-            :disabled="!pasteText.trim()"
+            :disabled="!pasteText.trim() || !pasteName.trim() || !pasteDate.trim()"
             :class="[
               'flex-1 rounded-xl py-2 text-sm font-medium transition-colors',
-              pasteText.trim() ? 'bg-sky-600 hover:bg-sky-500 text-white' : 'bg-slate-800 text-slate-600 cursor-not-allowed',
+              pasteText.trim() && pasteName.trim() && pasteDate.trim() ? 'bg-sky-600 hover:bg-sky-500 text-white' : 'bg-slate-800 text-slate-600 cursor-not-allowed',
             ]"
             @click="addPastedText"
           >
