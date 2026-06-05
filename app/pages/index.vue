@@ -18,23 +18,23 @@ const row1 = [
   {
     label: 'チャット',
     description: '自分のデータを知ったAIと対話し、思考を整理する',
-    to: null,
+    to: '/chat',
     icon: '◎',
-    available: false,
-    accent: 'from-slate-700/10 to-slate-900/5',
-    border: 'border-slate-800/50',
-    iconColor: 'text-slate-600',
-  },
-  {
-    label: '音声入力',
-    description: '話したことを文字起こしして記録し、中間データとして蓄積する',
-    to: '/voice',
-    icon: '◉',
     available: true,
-    accent: 'from-rose-500/20 to-rose-900/5',
-    border: 'border-rose-700/50 hover:border-rose-500/70',
-    iconColor: 'text-rose-400',
+    accent: 'from-violet-500/20 to-violet-900/5',
+    border: 'border-violet-700/50 hover:border-violet-500/70',
+    iconColor: 'text-violet-400',
   },
+  // {
+  //   label: '音声入力',
+  //   description: '話したことを文字起こしして記録し、中間データとして蓄積する',
+  //   to: '/voice',
+  //   icon: '◉',
+  //   available: true,
+  //   accent: 'from-rose-500/20 to-rose-900/5',
+  //   border: 'border-rose-700/50 hover:border-rose-500/70',
+  //   iconColor: 'text-rose-400',
+  // },
 ]
 
 const row2 = [

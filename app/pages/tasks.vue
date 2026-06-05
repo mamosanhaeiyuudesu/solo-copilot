@@ -13,6 +13,11 @@ const editingTask = ref<Task | null>(null)
 const pendingStatusTask = ref<Task | null>(null)
 const defaultStatus = ref<'todo' | 'doing' | 'done'>('todo')
 
+// DnD state
+const draggingTask = ref<Task | null>(null)
+const dragOverColumn = ref<string | null>(null)
+const dragOverTaskId = ref<string | null>(null)
+
 const COLUMNS: {
   status: 'todo' | 'doing' | 'done'
   label: string
@@ -47,9 +52,28 @@ const COLUMNS: {
   },
 ]
 
+// Tag filter — all checked by default; syncs when tags are loaded
+const selectedTagIds = ref<Set<string>>(new Set())
+
+watch(tags, (newTags) => {
+  for (const tag of newTags) {
+    if (!selectedTagIds.value.has(tag.id)) selectedTagIds.value.add(tag.id)
+  }
+}, { immediate: true })
+
+function toggleTag(tagId: string) {
+  const next = new Set(selectedTagIds.value)
+  if (next.has(tagId)) next.delete(tagId)
+  else next.add(tagId)
+  selectedTagIds.value = next
+}
+
 const tasksByStatus = computed(() => {
   const result: Record<string, Task[]> = { todo: [], doing: [], done: [] }
-  for (const t of tasks.value) result[t.status]!.push(t)
+  for (const t of tasks.value) {
+    const visible = t.tags.length === 0 || t.tags.some((tag) => selectedTagIds.value.has(tag.id))
+    if (visible) result[t.status]!.push(t)
+  }
   return result
 })
 
@@ -87,20 +111,6 @@ async function handleDeleteTask(id: string) {
   await deleteTask(id)
 }
 
-async function moveForward(task: Task) {
-  if (task.status === 'doing') {
-    pendingStatusTask.value = task
-    completionModalOpen.value = true
-  } else {
-    await changeStatus(task.id, { status: 'doing' })
-  }
-}
-
-async function moveBackward(task: Task) {
-  const prev = task.status === 'done' ? 'doing' : 'todo'
-  await changeStatus(task.id, { status: prev })
-}
-
 async function handleCompletion(data: { actualHours: number | null; completedAt: string }) {
   completionModalOpen.value = false
   if (!pendingStatusTask.value) return
@@ -118,6 +128,65 @@ async function handleSkipCompletion() {
   await changeStatus(pendingStatusTask.value.id, { status: 'done' })
   pendingStatusTask.value = null
 }
+
+// --- Drag and Drop ---
+
+function onDragStart(task: Task) {
+  draggingTask.value = task
+}
+
+function onDragEnd() {
+  draggingTask.value = null
+  dragOverColumn.value = null
+  dragOverTaskId.value = null
+}
+
+function onDragOverColumn(status: string) {
+  dragOverColumn.value = status
+}
+
+function onDragOverTask(taskId: string) {
+  dragOverTaskId.value = taskId
+  // keep column in sync
+  const task = tasks.value.find(t => t.id === taskId)
+  if (task) dragOverColumn.value = task.status
+}
+
+async function onDrop(targetStatus: 'todo' | 'doing' | 'done') {
+  const task = draggingTask.value
+  if (!task) return
+
+  const isSameColumn = task.status === targetStatus
+
+  if (!isSameColumn) {
+    // doing→done triggers completion modal
+    if (targetStatus === 'done' && task.status === 'doing') {
+      pendingStatusTask.value = task
+      completionModalOpen.value = true
+      onDragEnd()
+      return
+    }
+    await changeStatus(task.id, { status: targetStatus })
+  }
+
+  // Reorder within the target column
+  const movedTask = tasks.value.find(t => t.id === task.id)
+  if (!movedTask) { onDragEnd(); return }
+
+  const colTasks = tasks.value.filter(t => t.status === targetStatus && t.id !== task.id)
+  const otherTasks = tasks.value.filter(t => t.status !== targetStatus)
+
+  let insertIdx = colTasks.length
+  if (dragOverTaskId.value && dragOverTaskId.value !== task.id) {
+    const hoverIdx = colTasks.findIndex(t => t.id === dragOverTaskId.value)
+    if (hoverIdx !== -1) insertIdx = hoverIdx
+  }
+
+  colTasks.splice(insertIdx, 0, movedTask)
+  tasks.value = [...otherTasks, ...colTasks]
+
+  onDragEnd()
+}
 </script>
 
 <template>
@@ -132,26 +201,39 @@ async function handleSkipCompletion() {
             ⚠ {{ overdueCount }}件が期限切れです
           </p>
         </div>
-        <div class="flex items-center gap-2">
-          <UButton
-            color="primary"
-            variant="solid"
-            size="sm"
-            @click="openAdd('todo')"
-          >
-            ＋ タスク追加
-          </UButton>
-          <UButton
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            class="text-slate-500 hover:text-slate-300"
-            title="タグ管理"
-            @click="tagModalOpen = true"
-          >
-            ⚙
-          </UButton>
-        </div>
+        <UButton
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          class="text-slate-500 hover:text-slate-300"
+          title="タグ管理"
+          @click="tagModalOpen = true"
+        >
+          ⚙
+        </UButton>
+      </div>
+
+      <!-- Tag filter -->
+      <div v-if="tags.length" class="flex flex-wrap gap-1.5 mb-4">
+        <button
+          v-for="tag in tags"
+          :key="tag.id"
+          :class="[
+            'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all',
+            selectedTagIds.has(tag.id)
+              ? 'border-transparent text-white opacity-100'
+              : 'border-slate-700 bg-transparent text-slate-500 opacity-50',
+          ]"
+          :style="selectedTagIds.has(tag.id) && tag.color ? { backgroundColor: tag.color + '33', borderColor: tag.color + '80', color: tag.color } : {}"
+          @click="toggleTag(tag.id)"
+        >
+          <span
+            class="w-1.5 h-1.5 rounded-full shrink-0"
+            :style="tag.color ? { backgroundColor: tag.color } : {}"
+            :class="!tag.color ? 'bg-slate-500' : ''"
+          />
+          {{ tag.name }}
+        </button>
       </div>
 
       <div v-if="loading" class="flex items-center justify-center py-20 text-slate-600">
@@ -162,7 +244,13 @@ async function handleSkipCompletion() {
         <div
           v-for="col in COLUMNS"
           :key="col.status"
-          :class="['rounded-2xl border border-slate-800/60 flex flex-col min-h-[70vh] overflow-hidden', col.headerBg]"
+          :class="[
+            'rounded-2xl border border-slate-800/60 flex flex-col min-h-[70vh] overflow-hidden transition-all duration-150',
+            col.headerBg,
+            draggingTask && dragOverColumn === col.status ? 'border-slate-600/80 shadow-lg shadow-black/20' : '',
+          ]"
+          @dragover.prevent="onDragOverColumn(col.status)"
+          @drop.prevent="onDrop(col.status)"
         >
           <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800/60">
             <div class="flex items-center gap-2">
@@ -172,31 +260,35 @@ async function handleSkipCompletion() {
               </span>
             </div>
             <button
-              :class="['text-slate-600 text-xl leading-none transition-colors', col.addHover]"
+              :class="[
+                'w-6 h-6 rounded-md flex items-center justify-center text-sm font-bold transition-all',
+                'bg-slate-800 text-slate-500 hover:bg-slate-700 hover:text-slate-200 active:scale-95',
+              ]"
               @click="openAdd(col.status)"
             >
               +
             </button>
           </div>
 
-          <div class="flex flex-col gap-2 p-3 flex-1">
+          <div class="flex flex-col gap-1.5 p-3 flex-1">
             <TasksTaskCard
               v-for="task in tasksByStatus[col.status]"
               :key="task.id"
               :task="task"
+              :is-drag-over="dragOverTaskId === task.id && draggingTask?.id !== task.id"
               @edit="openEdit"
               @delete="handleDeleteTask"
-              @move-forward="moveForward"
-              @move-backward="moveBackward"
+              @drag-start="onDragStart"
+              @drag-end="onDragEnd"
+              @drag-over="onDragOverTask"
             />
 
-            <button
-              v-if="!(tasksByStatus[col.status]?.length)"
-              :class="['mt-2 py-6 rounded-xl border border-dashed border-slate-800 text-slate-700 text-sm transition-colors', col.addHover]"
-              @click="openAdd(col.status)"
-            >
-              ＋ タスクを追加
-            </button>
+            <!-- Drop zone indicator when column is empty or dragging over -->
+            <div
+              v-if="draggingTask && dragOverColumn === col.status && !dragOverTaskId"
+              class="flex-1 rounded-lg border-2 border-dashed border-slate-600/50 min-h-12 transition-all"
+            />
+
           </div>
         </div>
       </div>

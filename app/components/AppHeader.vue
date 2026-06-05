@@ -4,8 +4,8 @@ const route = useRoute()
 
 const navItems = [
   { label: 'タスク管理', to: '/tasks', icon: '◈' },
-  { label: 'チャット', to: null, icon: '◎' },
-  { label: '音声入力', to: '/voice', icon: '◉' },
+  { label: 'チャット', to: '/chat', icon: '◎' },
+  // { label: '音声入力', to: '/voice', icon: '◉' },
   { label: 'データ取込', to: '/import', icon: '⊕' },
   { label: '健康管理', to: null, icon: '◉' },
   { label: '財務管理', to: null, icon: '◆' },

@@ -43,6 +43,7 @@ solo-copilot/
 | タスク↔タグ付与・解除 | `server/api/tasks/[id]/tags/index.post.ts` / `[tag_id].delete.ts` |
 | タスクAPI composable | `app/composables/useTasks.ts` |
 | ダッシュボード | `app/pages/index.vue` |
+| チャットページ | `app/pages/chat.vue` |
 | カンバンボード | `app/pages/tasks.vue` |
 | 外部データ取り込みページ | `app/pages/import.vue` |
 | 長期記憶ビューアページ | `app/pages/memory.vue` |
