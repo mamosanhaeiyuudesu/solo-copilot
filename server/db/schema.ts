@@ -77,7 +77,7 @@ export const importedFiles = sqliteTable('imported_files', {
 export const intermediateRecords = sqliteTable('intermediate_records', {
   id: text('id').primaryKey(),
   sourceId: text('source_id'),
-  sourceType: text('source_type', { enum: ['imported_file', 'task', 'voice_record'] }),
+  sourceType: text('source_type', { enum: ['imported_file', 'task', 'voice_record', 'chat_message'] }),
   date: text('date'),
   polarity: text('polarity', { enum: ['positive', 'negative', 'neutral'] }),
   tag: text('tag'),
@@ -90,7 +90,7 @@ export const intermediateRecords = sqliteTable('intermediate_records', {
 export const extractionLogs = sqliteTable('extraction_logs', {
   id: text('id').primaryKey(),
   sourceId: text('source_id').notNull(),
-  sourceType: text('source_type', { enum: ['imported_file', 'task', 'voice_record'] }).notNull(),
+  sourceType: text('source_type', { enum: ['imported_file', 'task', 'voice_record', 'chat_message'] }).notNull(),
   intermediateRecordId: text('intermediate_record_id').references(() => intermediateRecords.id),
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 }, (t) => ({
