@@ -137,7 +137,7 @@ async function sendMessage() {
 
   try {
     await streamText('/api/agent/chat', {
-      messages: messages.value.slice(0, -1),
+      messages: messages.value.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
       systemPrompt: systemPrompt.value,
     }, (chunk) => {
       messages.value[lastIdx]!.content += chunk
