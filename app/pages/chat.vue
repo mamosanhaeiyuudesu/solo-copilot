@@ -165,6 +165,18 @@ function resizeTextarea() {
   textareaRef.value.style.height = 'auto'
   textareaRef.value.style.height = textareaRef.value.scrollHeight + 'px'
 }
+
+function deleteMessage(index: number) {
+  const msg = messages.value[index]
+  if (!msg || msg.role !== 'user') return
+  const next = messages.value[index + 1]
+  if (next?.role === 'assistant') {
+    messages.value.splice(index, 2)
+  }
+  else {
+    messages.value.splice(index, 1)
+  }
+}
 </script>
 
 <template>
@@ -248,7 +260,7 @@ function resizeTextarea() {
         </div>
 
         <template v-for="(msg, i) in messages" :key="i">
-          <div :class="['flex flex-col', msg.role === 'user' ? 'items-end' : 'items-start']">
+          <div :class="['flex flex-col group', msg.role === 'user' ? 'items-end' : 'items-start']">
             <div
               :class="[
                 'max-w-[75%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap break-words leading-relaxed',
@@ -260,11 +272,31 @@ function resizeTextarea() {
               <span v-if="msg.role === 'assistant' && msg.content === '' && streaming" class="inline-block w-2 h-4 bg-violet-400 animate-pulse rounded-sm" />
               <template v-else>{{ msg.content }}</template>
             </div>
-            <span v-if="msg.role === 'user' && msg.timestamp" class="mt-1 text-xs text-slate-600">
-              {{ formatTime(msg.timestamp) }}
-            </span>
+            <div v-if="msg.role === 'user'" class="flex items-center gap-2 mt-1">
+              <button
+                class="opacity-0 group-hover:opacity-100 text-xs text-slate-600 hover:text-red-400 transition-all disabled:cursor-not-allowed"
+                :disabled="streaming"
+                @click="deleteMessage(i)"
+              >
+                削除
+              </button>
+              <span v-if="msg.timestamp" class="text-xs text-slate-600">{{ formatTime(msg.timestamp) }}</span>
+            </div>
           </div>
         </template>
+      </div>
+
+      <!-- クイック送信ボタン -->
+      <div class="shrink-0 flex flex-wrap gap-2 pb-2">
+        <button
+          v-for="label in ['褒めてください', '未来に向かってアドバイスを下さい', '優しく苦労をねぎらってください']"
+          :key="label"
+          :disabled="streaming"
+          class="px-3 py-1.5 rounded-full text-xs text-slate-400 border border-slate-700/60 hover:border-amber-500/50 hover:text-amber-300 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+          @click="input = label; sendMessage()"
+        >
+          {{ label }}
+        </button>
       </div>
 
       <!-- 入力エリア -->

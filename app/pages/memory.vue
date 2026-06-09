@@ -33,6 +33,12 @@ interface MemorySnapshot {
   createdAt: string
 }
 
+interface LivingProfile {
+  aiSummary: string | null
+  recommendedFocus: string | null
+  periodEnd: string | null
+}
+
 const activeTab = ref<'intermediate' | 'snapshots'>('intermediate')
 
 // 中間情報フィルター
@@ -45,6 +51,38 @@ const intermediateRecords = ref<IntermediateRecord[]>([])
 const loadingIntermediate = ref(false)
 
 // 長期記憶フィルター
+const batching = ref(false)
+const batchResult = ref<{ weekly: number; monthly: number; yearly: number; livingProfile: boolean } | null>(null)
+const livingProfile = ref<LivingProfile | null>(null)
+const showProfile = ref(false)
+
+async function fetchLivingProfile() {
+  try {
+    const res = await $fetch<{ profile: LivingProfile | null }>('/api/memory/profile')
+    livingProfile.value = res.profile
+  }
+  catch {}
+}
+
+async function runBatch() {
+  batching.value = true
+  batchResult.value = null
+  try {
+    const res = await $fetch<{ weekly: number; monthly: number; yearly: number; livingProfile: boolean }>(
+      '/api/memory/batch',
+      { method: 'POST' },
+    )
+    batchResult.value = res
+    await fetchLivingProfile()
+  }
+  catch {
+    alert('バッチ処理に失敗しました')
+  }
+  finally {
+    batching.value = false
+  }
+}
+
 const filterPeriodType = ref('')
 const snapshots = ref<MemorySnapshot[]>([])
 const loadingSnapshots = ref(false)
@@ -132,7 +170,10 @@ watch(activeTab, (tab) => {
 
 onMounted(async () => {
   await checkAuth()
-  if (isAuthed.value) fetchIntermediate()
+  if (isAuthed.value) {
+    fetchIntermediate()
+    fetchLivingProfile()
+  }
 })
 </script>
 
@@ -141,9 +182,51 @@ onMounted(async () => {
     <AuthModal v-if="!isAuthed" />
 
     <div v-else class="py-4">
-      <div class="mb-8">
-        <h1 class="text-3xl font-black text-slate-50 tracking-tight">長期記憶ビューア</h1>
-        <p class="mt-2 text-slate-500">中間情報と長期記憶スナップショットを閲覧する</p>
+      <div class="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 class="text-3xl font-black text-slate-50 tracking-tight">長期記憶ビューア</h1>
+          <p class="mt-2 text-slate-500">中間情報と長期記憶スナップショットを閲覧する</p>
+        </div>
+        <button
+          type="button"
+          :disabled="batching"
+          class="shrink-0 mt-1 px-4 py-2 rounded-lg text-sm font-medium bg-violet-700 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+          @click="runBatch"
+        >
+          {{ batching ? '処理中…' : '長期記憶を更新' }}
+        </button>
+      </div>
+
+      <!-- バッチ結果 / プロファイルパネル -->
+      <div class="mb-6 rounded-xl border border-slate-800 bg-slate-900/30 p-4">
+        <div class="flex items-center justify-between gap-4">
+          <div class="text-sm">
+            <span v-if="livingProfile?.periodEnd" class="text-slate-400">
+              プロファイル最終更新: <span class="text-slate-300">{{ livingProfile.periodEnd }}</span>
+            </span>
+            <span v-else class="text-slate-600">プロファイル未生成</span>
+            <span v-if="batchResult" class="ml-4 text-xs text-slate-500">
+              週次{{ batchResult.weekly }}件・月次{{ batchResult.monthly }}件・年次{{ batchResult.yearly }}件を処理
+              <span v-if="batchResult.livingProfile" class="text-violet-400">・プロファイル更新済み</span>
+            </span>
+          </div>
+          <button
+            v-if="livingProfile?.aiSummary"
+            type="button"
+            class="text-xs text-slate-500 hover:text-slate-300 transition-colors shrink-0"
+            @click="showProfile = !showProfile"
+          >
+            {{ showProfile ? 'プロファイルを隠す' : 'プロファイルを表示' }}
+          </button>
+        </div>
+        <div v-if="showProfile && livingProfile?.aiSummary" class="mt-4 pt-4 border-t border-slate-800">
+          <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">現在のプロファイル（AI参照用）</p>
+          <p class="text-sm text-slate-300 whitespace-pre-wrap">{{ livingProfile.aiSummary }}</p>
+          <div v-if="livingProfile.recommendedFocus" class="mt-3 pt-3 border-t border-slate-800/50">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">現在の優先事項</p>
+            <p class="text-sm text-slate-400 whitespace-pre-wrap">{{ livingProfile.recommendedFocus }}</p>
+          </div>
+        </div>
       </div>
 
       <!-- タブ -->

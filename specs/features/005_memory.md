@@ -50,7 +50,7 @@ AIが生成した自己理解データを可視化し、自分の行動・感情
 ```typescript
 // intermediate_records: 中間情報（Phase 2で生成）
 intermediateRecords: {
-  id, sourceId, sourceType('raw_external_data'|'task'), date,
+  id, sourceId, sourceType('raw_external_data'|'task'|'chat_message'), date,
   polarity('positive'|'negative'|'neutral'), tag, what, intensity, createdAt
 }
 
@@ -60,12 +60,22 @@ extractionLogs: {
 }
 
 // memory_snapshots: 長期記憶スナップショット（Phase 2で生成）
+// periodType='living_profile' は常に1レコードのみ存在し、更新時に上書きする
 memorySnapshots: {
-  id, periodType('weekly'|'monthly'|'yearly'|'manual'|'past'),
+  id, periodType('weekly'|'monthly'|'yearly'|'manual'|'past'|'living_profile'),
   periodStart, periodEnd, achievements, struggles, interests,
   aiSummary, recommendedFocus, integratedAdvice, financeSummary, healthTrend, createdAt
 }
 ```
+
+### living_profile レコードのフィールド利用方針
+
+| フィールド | 用途 |
+|---|---|
+| `aiSummary` | プロファイル本文（~500トークンのプレーンテキスト）。チャット・ツールのシステムプロンプトに注入する |
+| `recommendedFocus` | 現在の優先事項（1〜3行）。ツールの quick reference 用 |
+| `periodEnd` | プロファイルの鮮度確認用（最後に処理した週の periodEnd） |
+| その他フィールド | null |
 
 ## 実装ファイル
 
@@ -96,6 +106,83 @@ Phase 2の抽出プロンプトで制御する方針とする。
   - AIの回答内容を「ユーザーの考え」として誤抽出しないよう、プロンプトで明示的に指示する
   - 具体的には「これはユーザーとAIの対話ログである。AIの発言は文脈理解のために参照するが、抽出する情報はユーザー発言に由来するものに限る」という方針をプロンプトに含める
 - **日記・other**：一人称テキストのためこの制約は不要。ソース種別に応じてプロンプトを分岐する
+
+## Phase 2：集約ロジック設計
+
+### 全体パイプライン
+
+```
+intermediate_records（原子的観察）
+    ↓ 週次バッチ
+memory_snapshots（weekly）
+    ↓ 月次バッチ
+memory_snapshots（monthly）
+    ↓ 年次バッチ
+memory_snapshots（yearly）
+    ↓ living_profile 更新バッチ
+memory_snapshots（living_profile）× 1レコード
+    ↓ 毎チャット・毎ツール呼び出し時
+システムプロンプトに注入
+```
+
+### バッチ処理の基本ルール
+
+- **対象は「完了したperiod」のみ**。periodEnd < 今日 の週・月・年のみ処理する
+- **未処理期間を遡って全て埋める**。最後のスナップショットのperiodEnd以降の全完了期間を順番に生成する
+- ボタンを押し忘れた週があっても、次回バッチ実行時にすべて補完される
+- intermediate_records が存在しない期間はスナップショット生成をスキップする（空スナップショットは作らない）
+
+### 各バッチの入出力
+
+**週次バッチ**
+- 入力：対象週の `intermediate_records`
+- 処理：tag別件数・polarity分布を集計（定量）→ AI が achievements/struggles/interests/aiSummary を生成
+- 出力：`memory_snapshots`（weekly）
+
+**月次バッチ**
+- 入力：対象月の `memory_snapshots`（weekly）
+- 出力：`memory_snapshots`（monthly）
+
+**年次バッチ**
+- 入力：対象年の `memory_snapshots`（monthly）
+- 出力：`memory_snapshots`（yearly）
+
+### living_profile の更新方式
+
+**週次ローリング更新（B方式）**
+- 入力：前回の `living_profile` + 直近の新しい `weekly` スナップショット
+- 前回プロファイル（=過去全体の蒸留済み）に最新週の変化を上乗せする
+- 軽量・高頻度向き
+
+**月次フルリビルド（A方式）**
+- 入力：`yearly` 全件 + `monthly` 直近3件 + `weekly` 直近4件
+- 全履歴（yearly）を参照するため1年以上前のデータも反映される
+- 誤りの蓄積をリセットする正確性確保のために月1回実施
+
+→ **月またぎのバッチ実行時はA方式、同月内の週次更新はB方式を使う**
+
+### トリガー
+
+- **Phase 2**：memoryページの「長期記憶を更新」ボタン（手動）
+- **将来**：Cloudflare Cron（週次 `0 6 * * 1`、月次 `0 6 1 * *`）
+- チャット開始時の自動実行はしない（プロファイルは週次更新の静的データとして扱う）
+
+### チャット・ツールへの注入
+
+```typescript
+// chat.post.ts（イメージ）
+const profile = await db.select()
+  .from(memorySnapshots)
+  .where(eq(memorySnapshots.periodType, 'living_profile'))
+  .get()
+
+const systemPrompt = profile
+  ? `${profile.aiSummary}\n\n---\n\n...`
+  : `...（フォールバック）`
+```
+
+- `living_profile` が存在しない場合はデフォルトのシステムプロンプトにフォールバック
+- ツールへの注入は `recommendedFocus` のみで十分なケースもある
 
 ## 関連スペック
 

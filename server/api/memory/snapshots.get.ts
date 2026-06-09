@@ -1,4 +1,4 @@
-import { eq, desc } from 'drizzle-orm'
+import { and, desc, eq, ne } from 'drizzle-orm'
 import { getDb } from '../../utils/db'
 import { memorySnapshots } from '../../db/schema'
 
@@ -13,6 +13,10 @@ export default defineEventHandler(async (event) => {
 
   if (query.periodType && validTypes.includes(query.periodType as PeriodType)) {
     dbQuery = dbQuery.where(eq(memorySnapshots.periodType, query.periodType as PeriodType)) as typeof dbQuery
+  }
+  else {
+    // living_profile は一覧に表示しない（専用パネルで表示）
+    dbQuery = dbQuery.where(ne(memorySnapshots.periodType, 'living_profile')) as typeof dbQuery
   }
 
   const rows = await dbQuery.orderBy(desc(memorySnapshots.createdAt)).all()

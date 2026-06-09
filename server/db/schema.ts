@@ -101,7 +101,7 @@ export const extractionLogs = sqliteTable('extraction_logs', {
 // intermediateRecords を集約して「できていること・苦しんでいること・関心・推奨フォーカス」などを保持する。
 export const memorySnapshots = sqliteTable('memory_snapshots', {
   id: text('id').primaryKey(),
-  periodType: text('period_type', { enum: ['weekly', 'monthly', 'yearly', 'manual', 'past'] }).notNull(),
+  periodType: text('period_type', { enum: ['weekly', 'monthly', 'yearly', 'manual', 'past', 'living_profile'] }).notNull(),
   periodStart: text('period_start'),
   periodEnd: text('period_end'),
   achievements: text('achievements'),
