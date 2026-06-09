@@ -41,7 +41,7 @@ interface LivingProfile {
 
 const activeTab = ref<'intermediate' | 'snapshots'>('intermediate')
 
-// 中間情報フィルター
+// 中間記憶フィルター
 const filterPolarity = ref('')
 const filterTag = ref('')
 const filterSourceType = ref('')
@@ -50,7 +50,7 @@ const filterDateTo = ref('')
 const intermediateRecords = ref<IntermediateRecord[]>([])
 const loadingIntermediate = ref(false)
 
-// 長期記憶フィルター
+// 記憶フィルター
 const batching = ref(false)
 const batchResult = ref<{ weekly: number; monthly: number; yearly: number; livingProfile: boolean } | null>(null)
 const livingProfile = ref<LivingProfile | null>(null)
@@ -184,8 +184,8 @@ onMounted(async () => {
     <div v-else class="py-4">
       <div class="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 class="text-3xl font-black text-slate-50 tracking-tight">長期記憶ビューア</h1>
-          <p class="mt-2 text-slate-500">中間情報と長期記憶スナップショットを閲覧する</p>
+          <h1 class="text-3xl font-black text-slate-50 tracking-tight">記憶ビューア</h1>
+          <p class="mt-2 text-slate-500">中間記憶と長期記憶を閲覧する</p>
         </div>
         <button
           type="button"
@@ -193,7 +193,7 @@ onMounted(async () => {
           class="shrink-0 mt-1 px-4 py-2 rounded-lg text-sm font-medium bg-violet-700 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
           @click="runBatch"
         >
-          {{ batching ? '処理中…' : '長期記憶を更新' }}
+          {{ batching ? '処理中…' : '記憶を更新' }}
         </button>
       </div>
 
@@ -232,7 +232,7 @@ onMounted(async () => {
       <!-- タブ -->
       <div class="flex gap-1 mb-6 border-b border-slate-800">
         <button
-          v-for="tab in [{ key: 'intermediate', label: '中間情報' }, { key: 'snapshots', label: '長期記憶' }] as const"
+          v-for="tab in [{ key: 'intermediate', label: '中間記憶' }, { key: 'snapshots', label: '長期記憶' }] as const"
           :key="tab.key"
           type="button"
           :class="[
@@ -247,7 +247,7 @@ onMounted(async () => {
         </button>
       </div>
 
-      <!-- 中間情報タブ -->
+      <!-- 中間記憶タブ -->
       <div v-if="activeTab === 'intermediate'">
         <!-- フィルター -->
         <div class="flex flex-wrap gap-3 mb-5">
@@ -296,7 +296,7 @@ onMounted(async () => {
         <div v-if="loadingIntermediate" class="text-slate-600 text-sm py-10 text-center">読み込み中…</div>
 
         <div v-else-if="intermediateRecords.length === 0" class="rounded-2xl border border-slate-800 bg-slate-900/30 p-12 text-center">
-          <p class="text-slate-600 text-sm mb-1">中間情報はまだありません</p>
+          <p class="text-slate-600 text-sm mb-1">中間記憶はまだありません</p>
           <p class="text-slate-700 text-xs">外部データをインポートしてAI処理（Phase 2）が完了すると表示されます</p>
         </div>
 
@@ -330,7 +330,7 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- 長期記憶タブ -->
+      <!-- 記憶タブ -->
       <div v-else-if="activeTab === 'snapshots'">
         <!-- フィルター -->
         <div class="flex gap-3 mb-5">
@@ -351,7 +351,7 @@ onMounted(async () => {
         <div v-if="loadingSnapshots" class="text-slate-600 text-sm py-10 text-center">読み込み中…</div>
 
         <div v-else-if="snapshots.length === 0" class="rounded-2xl border border-slate-800 bg-slate-900/30 p-12 text-center">
-          <p class="text-slate-600 text-sm mb-1">長期記憶スナップショットはまだありません</p>
+          <p class="text-slate-600 text-sm mb-1">長期記憶はまだありません</p>
           <p class="text-slate-700 text-xs">Phase 2でAIが自動生成します</p>
         </div>
 

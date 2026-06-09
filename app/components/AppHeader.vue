@@ -9,7 +9,7 @@ const navItems = [
   { label: 'データ取込', to: '/import', icon: '⊕' },
   { label: '健康管理', to: null, icon: '◉' },
   { label: '財務管理', to: null, icon: '◆' },
-  { label: '長期記憶ビューア', to: '/memory', icon: '◑' },
+  { label: '記憶ビューア', to: '/memory', icon: '◑' },
 ]
 </script>
 

@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
 
   const result = { weekly: 0, monthly: 0, yearly: 0, livingProfile: false }
 
-  // 1. バッチ開始日を決定（最後の週次スナップショットの翌日 or 最古の中間情報の日付）
+  // 1. バッチ開始日を決定（最後の週次スナップショットの翌日 or 最古の中間記憶の日付）
   const lastWeekly = await db.select({ periodEnd: memorySnapshots.periodEnd })
     .from(memorySnapshots)
     .where(eq(memorySnapshots.periodType, 'weekly'))

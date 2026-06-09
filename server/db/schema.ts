@@ -12,7 +12,7 @@ export const voiceRecords = sqliteTable('voice_records', {
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 })
 
-// AIとのチャット会話セッション。将来的にAIへの相談履歴を長期記憶の入力源として使う想定。
+// AIとのチャット会話セッション。将来的にAIへの相談履歴を記憶の入力源として使う想定。
 export const conversations = sqliteTable('conversations', {
   id: text('id').primaryKey(),
   title: text('title').notNull().default(''),
@@ -44,7 +44,7 @@ export const tasks = sqliteTable('tasks', {
   updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
 })
 
-// タスクに付与するラベル（キャリア・健康・副業など）。中間情報の tag とは独立した管理。
+// タスクに付与するラベル（キャリア・健康・副業など）。中間記憶の tag とは独立した管理。
 export const tags = sqliteTable('tags', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -71,9 +71,9 @@ export const importedFiles = sqliteTable('imported_files', {
   updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
 })
 
-// rawExternalData / tasks をAIで分析して抽出した中間情報。
+// rawExternalData / tasks をAIで分析して抽出した中間記憶。
 // 「何を考えていたか（what）」「感情の方向（polarity）」「テーマ（tag）」「重要度（intensity）」を保持し、
-// 長期記憶スナップショット生成の入力データとなる。
+// 長期記憶生成の入力データとなる。
 export const intermediateRecords = sqliteTable('intermediate_records', {
   id: text('id').primaryKey(),
   sourceId: text('source_id'),
@@ -97,7 +97,7 @@ export const extractionLogs = sqliteTable('extraction_logs', {
   sourceUnique: uniqueIndex('extraction_logs_source_unique').on(t.sourceId, t.sourceType),
 }))
 
-// AIが定期生成するユーザーの長期記憶スナップショット（週次・月次・年次・手動・過去振り返り）。
+// AIが定期生成するユーザーの長期記憶（週次・月次・年次・手動・過去振り返り）。
 // intermediateRecords を集約して「できていること・苦しんでいること・関心・推奨フォーカス」などを保持する。
 export const memorySnapshots = sqliteTable('memory_snapshots', {
   id: text('id').primaryKey(),

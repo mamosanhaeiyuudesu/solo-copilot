@@ -1,4 +1,4 @@
-# 長期記憶ビューア スペック
+# 記憶ビューア スペック
 
 **ステータス**: In Progress
 **スペック番号**: 005
@@ -6,7 +6,7 @@
 
 ## 概要
 
-中間情報（intermediate_records）と長期記憶スナップショット（memory_snapshots）を閲覧専用で表示する。Phase 1ではUI骨格のみで、データがない場合は空表示。
+中間記憶（intermediate_records）と長期記憶（memory_snapshots）を閲覧専用で表示する。Phase 1ではUI骨格のみで、データがない場合は空表示。
 
 ## 背景・動機
 
@@ -14,14 +14,14 @@ AIが生成した自己理解データを可視化し、自分の行動・感情
 
 ## 受入れ基準
 
-- [x] 「中間情報」と「長期記憶」のタブ切り替えができる
-- [x] 中間情報タブ：polarity・tag・期間・ソース種別でフィルタリングできる
-- [x] 中間情報タブ：日付・ソース・polarity・tag・what・intensityが一覧表示される
-- [x] 中間情報タブ：データがない場合は空状態を表示する
-- [x] 長期記憶タブ：period_typeでフィルタリングできる
-- [x] 長期記憶タブ：スナップショット一覧（日付・period_type）が表示される
-- [x] 長期記憶タブ：スナップショットをクリックで詳細（できていること・苦しんでいること等）を表示する
-- [x] 長期記憶タブ：データがない場合は空状態を表示する
+- [x] 「中間記憶」と「記憶」のタブ切り替えができる
+- [x] 中間記憶タブ：polarity・tag・期間・ソース種別でフィルタリングできる
+- [x] 中間記憶タブ：日付・ソース・polarity・tag・what・intensityが一覧表示される
+- [x] 中間記憶タブ：データがない場合は空状態を表示する
+- [x] 記憶タブ：period_typeでフィルタリングできる
+- [x] 記憶タブ：スナップショット一覧（日付・period_type）が表示される
+- [x] 記憶タブ：スナップショットをクリックで詳細（できていること・苦しんでいること等）を表示する
+- [x] 記憶タブ：データがない場合は空状態を表示する
 - [x] 閲覧専用（編集・削除UIなし）
 - [x] 認証済みユーザーのみ表示される
 
@@ -29,7 +29,7 @@ AIが生成した自己理解データを可視化し、自分の行動・感情
 
 | メソッド | パス | 認証 | 説明 |
 |---|---|---|---|
-| GET | `/api/memory/intermediate` | 要 | 中間情報一覧取得 |
+| GET | `/api/memory/intermediate` | 要 | 中間記憶一覧取得 |
 | GET | `/api/memory/snapshots` | 要 | スナップショット一覧取得 |
 | GET | `/api/memory/snapshots/[id]` | 要 | スナップショット詳細取得 |
 
@@ -48,18 +48,18 @@ AIが生成した自己理解データを可視化し、自分の行動・感情
 ## DBスキーマ変更
 
 ```typescript
-// intermediate_records: 中間情報（Phase 2で生成）
+// intermediate_records: 中間記憶（Phase 2で生成）
 intermediateRecords: {
   id, sourceId, sourceType('raw_external_data'|'task'|'chat_message'), date,
   polarity('positive'|'negative'|'neutral'), tag, what, intensity, createdAt
 }
 
-// extraction_logs: 中間情報生成ログ（UNIQUE(sourceId, sourceType)で重複防止）
+// extraction_logs: 中間記憶生成ログ（UNIQUE(sourceId, sourceType)で重複防止）
 extractionLogs: {
   id, sourceId, sourceType, intermediateRecordId(FK→intermediateRecords nullable), createdAt
 }
 
-// memory_snapshots: 長期記憶スナップショット（Phase 2で生成）
+// memory_snapshots: 長期記憶（Phase 2で生成）
 // periodType='living_profile' は常に1レコードのみ存在し、更新時に上書きする
 memorySnapshots: {
   id, periodType('weekly'|'monthly'|'yearly'|'manual'|'past'|'living_profile'),
@@ -91,7 +91,7 @@ memorySnapshots: {
 - pastタイプのスナップショットは時系列の最古に表示（ORDER BY: past > 他は createdAt DESC）
 - Phase 1ではデータがないため空表示でOK
 
-## Phase 2：中間情報の抽出方針（対話データの扱い）
+## Phase 2：中間記憶の抽出方針（対話データの扱い）
 
 ### raw_external_dataの保存単位
 
@@ -163,7 +163,7 @@ memory_snapshots（living_profile）× 1レコード
 
 ### トリガー
 
-- **Phase 2**：memoryページの「長期記憶を更新」ボタン（手動）
+- **Phase 2**：memoryページの「記憶を更新」ボタン（手動）
 - **将来**：Cloudflare Cron（週次 `0 6 * * 1`、月次 `0 6 1 * *`）
 - チャット開始時の自動実行はしない（プロファイルは週次更新の静的データとして扱う）
 

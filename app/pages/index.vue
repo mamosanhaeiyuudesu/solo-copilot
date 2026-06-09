@@ -89,7 +89,7 @@ const row2 = [
           class="flex items-center gap-1.5 text-violet-400 hover:text-violet-300 transition-colors text-sm font-medium mt-1"
         >
           <span class="text-base">◑</span>
-          <span>長期記憶ビューア</span>
+          <span>記憶ビューア</span>
           <span class="text-violet-600 text-xs">→</span>
         </component>
       </div>

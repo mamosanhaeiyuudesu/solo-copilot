@@ -248,7 +248,8 @@ export async function updateLivingProfile(
     const res = await claude.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 2048,
-      messages: [{ role: 'user', content: `以下のデータからユーザーの長期記憶プロファイルを生成してください。
+      messages: [{
+        role: 'user', content: `以下のデータからユーザーの記憶プロファイルを生成してください。
 AIアシスタントがこのユーザーを深く理解し最適なサポートをするための参照情報として使います。
 
 ${sections}
@@ -296,7 +297,8 @@ ${sections}
     const res = await claude.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 2048,
-      messages: [{ role: 'user', content: `現在のプロファイルを最新情報で更新してください。
+      messages: [{
+        role: 'user', content: `現在のプロファイルを最新情報で更新してください。
 安定した特性・価値観・パターンは保持し、「現在の状況」のみ最新情報に更新してください。
 
 現在のプロファイル:
