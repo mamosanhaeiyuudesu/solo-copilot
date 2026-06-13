@@ -26,7 +26,8 @@ solo-copilot/
 
 | やりたいこと | ファイル |
 |---|---|
-| AIチャットAPI（Claude） | `server/api/agent/chat.post.ts` |
+| AIチャットAPI（Claude、ストリーミング） | `server/api/agent/chat.post.ts` |
+| チャットメッセージからの中間記憶バッチ抽出 | `server/api/agent/chat-extract.post.ts` |
 | Claude設定・ストリーミングラッパー | `server/utils/claude.ts` |
 | OpenAI設定・ストリーミングラッパー | `server/utils/openai.ts` |
 | Gemini設定・ストリーミングラッパー | `server/utils/gemini.ts` |
@@ -36,6 +37,10 @@ solo-copilot/
 | DBアクセスヘルパー | `server/utils/db.ts` |
 | フロントエンド認証状態 | `app/composables/useAuth.ts` |
 | AIストリーミング読み取り | `app/composables/useStream.ts` |
+| 会話セッション作成 | `server/api/conversations/index.post.ts` |
+| 最新会話または新規作成 | `server/api/conversations/current.get.ts` |
+| 会話のメッセージ一覧取得 | `server/api/conversations/[id]/messages.get.ts` |
+| メッセージ保存（自動抽出付き） | `server/api/conversations/[id]/messages.post.ts` |
 | タスクAPI（一覧・作成） | `server/api/tasks/index.get.ts` / `index.post.ts` |
 | タスクAPI（詳細・更新・削除） | `server/api/tasks/[id].get.ts` / `[id].put.ts` / `[id].delete.ts` |
 | タスクAPI（ステータス変更） | `server/api/tasks/[id]/status.patch.ts` |
@@ -52,14 +57,17 @@ solo-copilot/
 | 完了モーダル | `app/components/tasks/CompletionModal.vue` |
 | タグ管理モーダル | `app/components/tasks/TagModal.vue` |
 | 幅広レイアウト（カンバン用） | `app/layouts/wide.vue` |
-| インポートAPI（ファイルアップロード） | `server/api/import/upload.post.ts` |
-| インポートAPI（バッチ一覧） | `server/api/import/batches.get.ts` |
-| インポートAPI（未処理データ→中間記憶） | `server/api/import/process.post.ts` |
-| インポートAPI（タスク→中間記憶） | `server/api/import/process-tasks.post.ts` |
+| インポートAPI（ファイルアップロード・チャンク分割） | `server/api/import/upload.post.ts` |
+| インポートAPI（ファイル一覧） | `server/api/import/files.get.ts` |
+| インポートAPI（未処理ファイル→中間記憶） | `server/api/import/process.post.ts` |
 | Claude抽出ロジック（中間記憶生成） | `server/utils/extraction.ts` |
-| 中間記憶API | `server/api/memory/intermediate.get.ts` |
+| 中間記憶API（一覧・フィルタ） | `server/api/memory/intermediate.get.ts` |
+| 中間記憶API（一括削除） | `server/api/memory/intermediate.delete.ts` |
 | スナップショットAPI（一覧） | `server/api/memory/snapshots.get.ts` |
 | スナップショットAPI（詳細） | `server/api/memory/snapshots/[id].get.ts` |
+| スナップショット一括生成バッチ | `server/api/memory/batch.post.ts` |
+| living_profileプロファイル取得 | `server/api/memory/profile.get.ts` |
+| スナップショット生成ロジック | `server/utils/snapshot.ts` |
 | 新機能スペック作成 | `specs/features/_template.md` をコピー |
 | 技術決定の背景（ADR） | `specs/architecture.md` |
 
@@ -123,21 +131,11 @@ import { getClaudeClient } from '~/server/utils/claude'
 
 export default defineEventHandler(async (event) => {
   const client = getClaudeClient(event)
-  setHeader(event, 'Content-Type', 'text/plain; charset=utf-8')
+  setupStreamHeaders(event)
 
-  const stream = await client.messages.create({ model: 'claude-sonnet-4-5', stream: true, ... })
+  const stream = await client.messages.create({ model: 'claude-sonnet-4-6', stream: true, ... })
 
-  const readable = new ReadableStream({
-    async start(controller) {
-      const enc = new TextEncoder()
-      for await (const ev of stream) {
-        if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta')
-          controller.enqueue(enc.encode(ev.delta.text))
-      }
-      controller.close()
-    },
-  })
-  return sendStream(event, readable)
+  return sendStream(event, createClaudeStream(stream))
 })
 ```
 

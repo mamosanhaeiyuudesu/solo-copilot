@@ -7,7 +7,7 @@ const { streamText } = useStream()
 type Message = { id: string; role: 'user' | 'assistant'; content: string; timestamp?: string }
 
 const SYSTEM_PROMPT_KEY = 'chat:systemPrompt'
-const CONVERSATION_ID_KEY = 'chat:conversationId'
+const RECENT_MESSAGES = 10
 const DEFAULT_SYSTEM_PROMPT = `あなたは傾聴を大切にするカウンセラーです。
 
 ## 関わり方の基本姿勢
@@ -28,7 +28,6 @@ const conversationId = ref<string | null>(null)
 const messages = ref<Message[]>([])
 const input = ref('')
 const streaming = ref(false)
-const menuOpen = ref(false)
 const settingsOpen = ref(false)
 const systemPrompt = ref(DEFAULT_SYSTEM_PROMPT)
 const editingPrompt = ref('')
@@ -43,32 +42,13 @@ function scrollToBottom(smooth = false) {
 }
 
 async function initConversation() {
-  const savedId = localStorage.getItem(CONVERSATION_ID_KEY)
-  if (savedId) {
-    try {
-      const loaded = await $fetch<Message[]>(`/api/conversations/${savedId}/messages`)
-      conversationId.value = savedId
-      messages.value = loaded
-      await nextTick()
-      scrollToBottom()
-      return
-    }
-    catch { /* IDが無効なら新規作成 */ }
-  }
-
-  const { id } = await $fetch<{ id: string }>('/api/conversations', { method: 'POST' })
+  const { id } = await $fetch<{ id: string }>('/api/conversations/current')
   conversationId.value = id
-  localStorage.setItem(CONVERSATION_ID_KEY, id)
-  messages.value = []
-}
-
-async function newConversation() {
-  menuOpen.value = false
-  const { id } = await $fetch<{ id: string }>('/api/conversations', { method: 'POST' })
-  conversationId.value = id
-  localStorage.setItem(CONVERSATION_ID_KEY, id)
-  messages.value = []
-  extractedCount.value = null
+  messages.value = await $fetch<Message[]>(`/api/conversations/${id}/messages`, {
+    params: { limit: RECENT_MESSAGES },
+  })
+  await nextTick()
+  scrollToBottom()
 }
 
 onMounted(async () => {
@@ -88,7 +68,6 @@ function formatTime(iso: string) {
 }
 
 function openSettings() {
-  menuOpen.value = false
   editingPrompt.value = systemPrompt.value
   settingsOpen.value = true
 }
@@ -200,46 +179,15 @@ function deleteMessage(index: number) {
       <div class="flex items-center justify-between mb-4 shrink-0">
         <h1 class="text-2xl font-black text-slate-50 tracking-tight">チャット</h1>
 
-        <!-- 設定メニュー -->
-        <div class="relative">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            class="text-slate-500 hover:text-slate-300"
-            @click="menuOpen = !menuOpen"
-          >
-            ⚙
-          </UButton>
-
-          <Transition
-            enter-active-class="transition duration-100 ease-out"
-            enter-from-class="opacity-0 scale-95"
-            enter-to-class="opacity-100 scale-100"
-            leave-active-class="transition duration-75 ease-in"
-            leave-from-class="opacity-100 scale-100"
-            leave-to-class="opacity-0 scale-95"
-          >
-            <div
-              v-if="menuOpen"
-              class="absolute right-0 top-9 z-50 w-44 rounded-xl bg-slate-900 border border-slate-700/60 shadow-xl overflow-hidden"
-            >
-              <button
-                class="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 transition-colors"
-                @click="openSettings"
-              >
-                システムプロンプト設定
-              </button>
-              <button
-                class="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-800 transition-colors border-t border-slate-800"
-                :disabled="streaming"
-                @click="newConversation"
-              >
-                新しいチャット
-              </button>
-            </div>
-          </Transition>
-        </div>
+        <UButton
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          class="text-slate-500 hover:text-slate-300"
+          @click="openSettings"
+        >
+          ⚙
+        </UButton>
       </div>
 
       <!-- 自動抽出トースト -->
@@ -335,7 +283,6 @@ function deleteMessage(index: number) {
     </div>
 
     <!-- メニュー外クリックで閉じる -->
-    <div v-if="menuOpen" class="fixed inset-0 z-40" @click="menuOpen = false" />
 
     <!-- システムプロンプト設定モーダル -->
     <UModal v-model:open="settingsOpen" title="システムプロンプト設定">

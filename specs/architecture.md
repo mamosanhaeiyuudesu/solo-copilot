@@ -17,14 +17,33 @@
 個人利用のためユーザー管理なし。
 
 ```
-conversations  id, title, created_at, updated_at
-messages       id, conversation_id(FK), role, content, created_at
+conversations       id, title, created_at, updated_at
+messages            id, conversation_id(FK→conversations), role(user|assistant),
+                    content, created_at
 
-tasks          id, title, description, status(todo/doing/done), priority(1-5),
-               due_date, completed_at, estimated_hours, actual_hours,
-               created_at, updated_at
-tags           id, name, description, color, created_at
-task_tags      task_id(FK→tasks), tag_id(FK→tags)  ※複合PK・両FK cascadeあり
+tasks               id, title, description, status(todo/doing/done), priority(1-5),
+                    due_date, completed_at, estimated_hours, actual_hours,
+                    created_at, updated_at
+tags                id, name, description, color, created_at
+task_tags           task_id(FK→tasks), tag_id(FK→tags)  ※複合PK・両FK cascadeあり
+
+imported_files      id, file_name, content, status(pending|processing|done|error),
+                    created_at, updated_at
+                    ※ 8000文字を超えるファイルはチャンク分割して複数レコード保存
+
+intermediate_records  id, source_id, source_type(imported_file|task|chat_message),
+                      date, polarity(positive|negative|neutral), tag, what,
+                      intensity(1-5), created_at
+
+extraction_logs     id, source_id, source_type, intermediate_record_id(FK nullable),
+                    created_at
+                    ※ UNIQUE(source_id, source_type) で二重処理を防ぐ
+
+memory_snapshots    id, period_type(weekly|monthly|yearly|manual|past|living_profile),
+                    period_start, period_end, achievements, struggles, interests,
+                    ai_summary, recommended_focus, integrated_advice,
+                    finance_summary, health_trend, created_at
+                    ※ living_profile は常に1レコードのみ（更新時に上書き）
 ```
 
 overdue（期限切れ）は DBカラムを持たず、サーバー側で `due_date < today && status != 'done'` で算出。

@@ -6,7 +6,7 @@
 
 ## 概要
 
-中間記憶（intermediate_records）と長期記憶（memory_snapshots）の生成・閲覧を実装する。インポートデータからAIが中間記憶を抽出し、週次→月次→年次→living_profileと段階的に集約する。
+中間記憶（intermediate_records）と長期記憶（memory_snapshots）の生成・閲覧を実装する。インポートデータまたはチャットメッセージからAIが中間記憶を抽出し、週次→月次→年次→living_profileと段階的に集約する。
 
 ## 背景・動機
 
@@ -25,6 +25,7 @@ AIが生成した自己理解データを可視化し、自分の行動・感情
 - [x] 閲覧専用（編集・削除UIなし）
 - [x] 認証済みユーザーのみ表示される
 - [x] インポートデータからAIが中間記憶を自動抽出する
+- [x] チャット中に未処理メッセージが10件以上になると自動で中間記憶を抽出する
 - [x] バッチ実行で週次→月次→年次→living_profileのスナップショットを生成する
 - [x] living_profileをチャットのシステムプロンプトに注入する
 
@@ -33,15 +34,17 @@ AIが生成した自己理解データを可視化し、自分の行動・感情
 | メソッド | パス | 認証 | 説明 |
 |---|---|---|---|
 | GET | `/api/memory/intermediate` | 要 | 中間記憶一覧取得 |
+| DELETE | `/api/memory/intermediate` | 要 | 中間記憶一括削除（`{ ids: string[] }` を body で受け取る） |
 | GET | `/api/memory/snapshots` | 要 | スナップショット一覧取得 |
 | GET | `/api/memory/snapshots/[id]` | 要 | スナップショット詳細取得 |
 | POST | `/api/memory/batch` | 要 | スナップショット一括生成 |
+| GET | `/api/memory/profile` | 要 | living_profile レコードを1件取得 |
 
 ### GET /api/memory/intermediate クエリパラメータ
 
 - `polarity`: `positive` | `negative` | `neutral`（省略可）
 - `tag`: string（省略可）
-- `sourceType`: `chatgpt` | `claude` | `diary` | `other` | `task`（省略可）
+- `sourceType`: `imported_file` | `task` | `chat_message`（省略可）
 - `dateFrom`: string（省略可、YYYY-MM-DD）
 - `dateTo`: string（省略可、YYYY-MM-DD）
 
@@ -49,13 +52,19 @@ AIが生成した自己理解データを可視化し、自分の行動・感情
 
 - `periodType`: `weekly` | `monthly` | `yearly` | `manual` | `past`（省略可）
 
+### POST /api/memory/batch レスポンス
+
+```typescript
+{ weekly: number; monthly: number; yearly: number; livingProfile: boolean }
+```
+
 ## DBスキーマ変更
 
 ```typescript
-// intermediate_records: 中間記憶（Phase 2で生成）
+// intermediate_records: 中間記憶
 intermediateRecords: {
-  id, sourceId, sourceType('raw_external_data'|'task'|'chat_message'), date,
-  polarity('positive'|'negative'|'neutral'), tag, what, intensity, createdAt
+  id, sourceId, sourceType('imported_file'|'task'|'chat_message'), date,
+  polarity('positive'|'negative'|'neutral'), tag, what, intensity(1-5), createdAt
 }
 
 // extraction_logs: 中間記憶生成ログ（UNIQUE(sourceId, sourceType)で重複防止）
@@ -63,7 +72,7 @@ extractionLogs: {
   id, sourceId, sourceType, intermediateRecordId(FK→intermediateRecords nullable), createdAt
 }
 
-// memory_snapshots: 長期記憶（Phase 2で生成）
+// memory_snapshots: 長期記憶
 // periodType='living_profile' は常に1レコードのみ存在し、更新時に上書きする
 memorySnapshots: {
   id, periodType('weekly'|'monthly'|'yearly'|'manual'|'past'|'living_profile'),
@@ -83,33 +92,35 @@ memorySnapshots: {
 
 ## 実装ファイル
 
-- `server/db/schema.ts` — intermediateRecords, extractionLogs, memorySnapshots テーブル追加
+- `server/db/schema.ts` — intermediateRecords, extractionLogs, memorySnapshots テーブル
 - `server/api/memory/intermediate.get.ts`
+- `server/api/memory/intermediate.delete.ts`
 - `server/api/memory/snapshots.get.ts`
 - `server/api/memory/snapshots/[id].get.ts`
+- `server/api/memory/batch.post.ts`
+- `server/api/memory/profile.get.ts`
+- `server/utils/snapshot.ts` — スナップショット生成ロジック（週次・月次・年次・living_profile）
 - `app/pages/memory.vue`
 
 ## ビューアの方針
 
 - 閲覧専用（編集・削除はしない）
 - pastタイプのスナップショットは時系列の最古に表示（ORDER BY: past > 他は createdAt DESC）
-- Phase 1ではデータがないため空表示でOK
 
-## 中間記憶の抽出方針（対話データの扱い）
+## 中間記憶の抽出方針
 
-### raw_external_dataの保存単位
+### ソース種別と抽出タイミング
 
-Phase 1でファイル全体をそのまま `content` に保存している（ユーザー発言・AI回答を分けない）。
-Phase 2の抽出プロンプトで制御する方針とする。
+| ソース | 抽出タイミング | ロジック |
+|---|---|---|
+| `imported_file` | `POST /api/import/process` 実行時 | ファイル全体をClaude分析 |
+| `chat_message` | アシスタントメッセージ保存後（自動） | 未処理メッセージが10件以上でトリガー |
 
-### 対話データ（chatgpt / claude）の分析方針
+### 対話データ（chat_message）の分析方針
 
-- **分析対象**：ユーザー発言・AI回答の両方を含む会話全体
-  - AIからの問いかけに対してユーザーが答える形式では、AIの文脈がないとユーザー発言の意味が取れないため
+- **分析対象**：ユーザー発言・AI回答の両方を含む会話全体（AIの文脈がないとユーザー発言の意味が取れないため）
 - **抽出の主体**：あくまでユーザー自身の思考・感情・関心・行動を読み取ることを目的とする
   - AIの回答内容を「ユーザーの考え」として誤抽出しないよう、プロンプトで明示的に指示する
-  - 具体的には「これはユーザーとAIの対話ログである。AIの発言は文脈理解のために参照するが、抽出する情報はユーザー発言に由来するものに限る」という方針をプロンプトに含める
-- **日記・other**：一人称テキストのためこの制約は不要。ソース種別に応じてプロンプトを分岐する
 
 ## 集約ロジック設計
 
@@ -125,7 +136,7 @@ memory_snapshots（monthly）
 memory_snapshots（yearly）
     ↓ living_profile 更新バッチ
 memory_snapshots（living_profile）× 1レコード
-    ↓ 毎チャット・毎ツール呼び出し時
+    ↓ 毎チャット呼び出し時
 システムプロンプトに注入
 ```
 
@@ -133,14 +144,13 @@ memory_snapshots（living_profile）× 1レコード
 
 - **対象は「完了したperiod」のみ**。periodEnd < 今日 の週・月・年のみ処理する
 - **未処理期間を遡って全て埋める**。最後のスナップショットのperiodEnd以降の全完了期間を順番に生成する
-- ボタンを押し忘れた週があっても、次回バッチ実行時にすべて補完される
 - intermediate_records が存在しない期間はスナップショット生成をスキップする（空スナップショットは作らない）
 
 ### 各バッチの入出力
 
 **週次バッチ**
-- 入力：対象週の `intermediate_records`
-- 処理：tag別件数・polarity分布を集計（定量）→ AI が achievements/struggles/interests/aiSummary を生成
+- 入力：対象週の `intermediate_records`（intensity ≥ 2 のみ）
+- 処理：tag別件数・polarity分布を集計 → AI が achievements/struggles/interests/aiSummary を生成（claude-haiku-4-5-20251001）
 - 出力：`memory_snapshots`（weekly）
 
 **月次バッチ**
@@ -153,17 +163,13 @@ memory_snapshots（living_profile）× 1レコード
 
 ### living_profile の更新方式
 
-**週次ローリング更新（B方式）**
-- 入力：前回の `living_profile` + 直近の新しい `weekly` スナップショット
-- 前回プロファイル（=過去全体の蒸留済み）に最新週の変化を上乗せする
-- 軽量・高頻度向き
+**週次ローリング更新（rolling）**
+- 入力：前回の `living_profile` + 直近2件の `weekly` スナップショット
+- 同月内の週次のみ新規生成された場合に使用
 
-**月次フルリビルド（A方式）**
+**月次フルリビルド（full）**
 - 入力：`yearly` 全件 + `monthly` 直近3件 + `weekly` 直近4件
-- 全履歴（yearly）を参照するため1年以上前のデータも反映される
-- 誤りの蓄積をリセットする正確性確保のために月1回実施
-
-→ **月またぎのバッチ実行時はA方式、同月内の週次更新はB方式を使う**
+- 月またぎ（monthly or yearly が新規生成された場合）に使用
 
 ### トリガー
 
@@ -171,23 +177,23 @@ memory_snapshots（living_profile）× 1レコード
 - **将来**：Cloudflare Cron（週次 `0 6 * * 1`、月次 `0 6 1 * *`）
 - チャット開始時の自動実行はしない（プロファイルは週次更新の静的データとして扱う）
 
-### チャット・ツールへの注入
+### チャットへの注入
 
 ```typescript
-// chat.post.ts（イメージ）
+// chat.post.ts
 const profile = await db.select()
   .from(memorySnapshots)
   .where(eq(memorySnapshots.periodType, 'living_profile'))
   .get()
 
-const systemPrompt = profile
-  ? `${profile.aiSummary}\n\n---\n\n...`
-  : `...（フォールバック）`
+const systemPrompt = profile?.aiSummary
+  ? `${profile.aiSummary}\n\n---\n\n${base}`
+  : base
 ```
 
 - `living_profile` が存在しない場合はデフォルトのシステムプロンプトにフォールバック
-- ツールへの注入は `recommendedFocus` のみで十分なケースもある
 
 ## 関連スペック
 
 - `specs/features/004_import.md`
+- `specs/features/006_chat.md`
