@@ -2,7 +2,7 @@ import { eq, and } from 'drizzle-orm'
 import { getDb } from '../../utils/db'
 import { importedFiles, intermediateRecords, extractionLogs } from '../../db/schema'
 import { getClaudeClient } from '../../utils/claude'
-import { extractIntermediateItems } from '../../utils/extraction'
+import { extractIntermediateItems, splitIntoChunks } from '../../utils/extraction'
 
 export default defineEventHandler(async (event) => {
   const db = getDb(event)
@@ -30,11 +30,14 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-      const items = await extractIntermediateItems(claude, file.content)
+      const chunks = splitIntoChunks(file.content)
+      const allItems = (
+        await Promise.all(chunks.map(chunk => extractIntermediateItems(claude, chunk)))
+      ).flat()
 
       let firstRecordId: string | null = null
 
-      for (const item of items) {
+      for (const item of allItems) {
         const id = crypto.randomUUID()
         if (!firstRecordId) firstRecordId = id
 

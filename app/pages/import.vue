@@ -167,7 +167,7 @@ onMounted(async () => {
       <section class="mb-10">
         <h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">インポート</h2>
         <div class="flex gap-2">
-          <label class="flex-1 flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-700 hover:border-sky-700 bg-slate-900/50 p-5 cursor-pointer transition-colors text-slate-400 hover:text-slate-200 text-sm">
+          <!-- <label class="flex-1 flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-700 hover:border-sky-700 bg-slate-900/50 p-5 cursor-pointer transition-colors text-slate-400 hover:text-slate-200 text-sm">
             <span class="text-sky-400">⊕</span> ファイルを選択
             <input
               id="file-input"
@@ -176,7 +176,7 @@ onMounted(async () => {
               class="hidden"
               @change="onFileChange"
             >
-          </label>
+          </label> -->
           <button
             type="button"
             class="flex-1 flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900/50 text-slate-400 hover:border-slate-500 hover:text-slate-200 text-sm transition-colors p-5"

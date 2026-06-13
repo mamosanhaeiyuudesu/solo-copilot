@@ -2,7 +2,7 @@
 const { isAuthed, checkAuth } = useAuth()
 
 type Polarity = 'positive' | 'negative' | 'neutral'
-type SourceType = 'imported_file' | 'task'
+type SourceType = 'imported_file' | 'task' | 'chat_message'
 type PeriodType = 'weekly' | 'monthly' | 'yearly' | 'manual' | 'past'
 
 interface IntermediateRecord {
@@ -49,6 +49,52 @@ const filterDateFrom = ref('')
 const filterDateTo = ref('')
 const intermediateRecords = ref<IntermediateRecord[]>([])
 const loadingIntermediate = ref(false)
+
+// 中間記憶選択・削除
+const selectedIds = ref<Set<string>>(new Set())
+const deleting = ref(false)
+
+const allSelected = computed(() =>
+  intermediateRecords.value.length > 0
+  && intermediateRecords.value.every(r => selectedIds.value.has(r.id)),
+)
+
+function toggleAll() {
+  if (allSelected.value) {
+    selectedIds.value = new Set()
+  }
+  else {
+    selectedIds.value = new Set(intermediateRecords.value.map(r => r.id))
+  }
+}
+
+function toggleOne(id: string) {
+  const next = new Set(selectedIds.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  selectedIds.value = next
+}
+
+async function deleteSelected() {
+  if (selectedIds.value.size === 0) return
+  if (!confirm(`${selectedIds.value.size}件の中間データを削除しますか？`)) return
+
+  deleting.value = true
+  try {
+    await $fetch('/api/memory/intermediate', {
+      method: 'DELETE',
+      body: { ids: [...selectedIds.value] },
+    })
+    intermediateRecords.value = intermediateRecords.value.filter(r => !selectedIds.value.has(r.id))
+    selectedIds.value = new Set()
+  }
+  catch {
+    alert('削除に失敗しました')
+  }
+  finally {
+    deleting.value = false
+  }
+}
 
 // 記憶フィルター
 const batching = ref(false)
@@ -277,6 +323,7 @@ onMounted(async () => {
             <option value="">ソース: すべて</option>
             <option value="imported_file">外部データ</option>
             <option value="task">タスク</option>
+            <option value="chat_message">チャット</option>
           </select>
           <input
             v-model="filterDateFrom"
@@ -297,35 +344,76 @@ onMounted(async () => {
 
         <div v-else-if="intermediateRecords.length === 0" class="rounded-2xl border border-slate-800 bg-slate-900/30 p-12 text-center">
           <p class="text-slate-600 text-sm mb-1">中間記憶はまだありません</p>
-          <p class="text-slate-700 text-xs">外部データをインポートしてAI処理（Phase 2）が完了すると表示されます</p>
+          <p class="text-slate-700 text-xs">外部データをインポートしてAI処理が完了すると表示されます</p>
         </div>
 
-        <div v-else class="space-y-3">
-          <div
-            v-for="record in intermediateRecords"
-            :key="record.id"
-            class="rounded-xl border border-slate-800 bg-slate-900/50 p-4"
-          >
-            <div class="flex items-start justify-between gap-3 mb-2">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span v-if="record.polarity" :class="['px-2 py-0.5 rounded-full text-xs font-medium', polarityColor[record.polarity]]">
-                  {{ polarityLabel[record.polarity] }}
-                </span>
-                <span v-if="record.tag" class="px-2 py-0.5 rounded-full text-xs text-violet-300 bg-violet-900/30">
-                  {{ record.tag }}
-                </span>
-                <span v-if="record.intensity !== null" class="text-xs text-slate-500">
-                  強度: {{ record.intensity }}
-                </span>
-              </div>
-              <div class="flex items-center gap-2 text-xs text-slate-600 shrink-0">
-                <span>{{ record.date ?? record.createdAt.slice(0, 10) }}</span>
-                <span v-if="record.sourceType" class="text-slate-700">
-                  {{ record.sourceType === 'task' ? 'タスク' : '外部データ' }}
-                </span>
+        <div v-else>
+          <!-- 一括操作バー -->
+          <div class="flex items-center gap-3 mb-3">
+            <label class="flex items-center gap-2 cursor-pointer text-sm text-slate-400 select-none">
+              <input
+                type="checkbox"
+                :checked="allSelected"
+                class="accent-violet-500 w-4 h-4 cursor-pointer"
+                @change="toggleAll"
+              >
+              全選択
+            </label>
+            <button
+              v-if="selectedIds.size > 0"
+              type="button"
+              :disabled="deleting"
+              class="px-3 py-1 rounded-lg text-xs font-medium bg-red-900/50 hover:bg-red-800/60 text-red-300 border border-red-800/50 disabled:opacity-50 transition-colors"
+              @click="deleteSelected"
+            >
+              {{ deleting ? '削除中…' : `${selectedIds.size}件を削除` }}
+            </button>
+          </div>
+
+          <div class="space-y-2">
+            <div
+              v-for="record in intermediateRecords"
+              :key="record.id"
+              :class="[
+                'rounded-xl border p-4 transition-colors cursor-pointer',
+                selectedIds.has(record.id)
+                  ? 'border-violet-600/50 bg-violet-900/10'
+                  : 'border-slate-800 bg-slate-900/50 hover:border-slate-700',
+              ]"
+              @click="toggleOne(record.id)"
+            >
+              <div class="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  :checked="selectedIds.has(record.id)"
+                  class="accent-violet-500 w-4 h-4 mt-0.5 shrink-0 cursor-pointer"
+                  @click.stop
+                  @change="toggleOne(record.id)"
+                >
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-start justify-between gap-3 mb-1.5">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span v-if="record.polarity" :class="['px-2 py-0.5 rounded-full text-xs font-medium', polarityColor[record.polarity]]">
+                        {{ polarityLabel[record.polarity] }}
+                      </span>
+                      <span v-if="record.tag" class="px-2 py-0.5 rounded-full text-xs text-violet-300 bg-violet-900/30">
+                        {{ record.tag }}
+                      </span>
+                      <span v-if="record.intensity !== null" class="text-xs text-slate-500">
+                        強度: {{ record.intensity }}
+                      </span>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-slate-600 shrink-0">
+                      <span>{{ record.date ?? record.createdAt.slice(0, 10) }}</span>
+                      <span v-if="record.sourceType" class="text-slate-700">
+                        {{ record.sourceType === 'task' ? 'タスク' : record.sourceType === 'chat_message' ? 'チャット' : '外部データ' }}
+                      </span>
+                    </div>
+                  </div>
+                  <p v-if="record.what" class="text-sm text-slate-200">{{ record.what }}</p>
+                </div>
               </div>
             </div>
-            <p v-if="record.what" class="text-sm text-slate-200">{{ record.what }}</p>
           </div>
         </div>
       </div>

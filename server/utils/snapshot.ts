@@ -61,7 +61,11 @@ export async function generateWeeklySnapshot(
 
   const records = await db.select()
     .from(intermediateRecords)
-    .where(and(gte(intermediateRecords.date, periodStart), lte(intermediateRecords.date, periodEnd)))
+    .where(and(
+      gte(intermediateRecords.date, periodStart),
+      lte(intermediateRecords.date, periodEnd),
+      gte(intermediateRecords.intensity, 2),
+    ))
     .orderBy(asc(intermediateRecords.date))
     .all()
   if (records.length === 0) return false

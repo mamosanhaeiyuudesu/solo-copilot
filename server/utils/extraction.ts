@@ -8,6 +8,9 @@ export interface ExtractedItem {
   intensity: number
 }
 
+const TURNS_PER_CHUNK = 20
+const CHAR_LIMIT = 2500
+
 function detectIsConversation(content: string): boolean {
   const trimmed = content.trimStart()
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
@@ -19,6 +22,44 @@ function detectIsConversation(content: string): boolean {
     catch {}
   }
   return /^(Human|User|Assistant|ChatGPT|Claude|あなた|ユーザー)[:：]/im.test(content)
+}
+
+function splitConversationText(body: string): string[] {
+  const turns = body.split(/(?=(?:Human|User|Assistant|ChatGPT|Claude|あなた|ユーザー)[:：])/i).filter(t => t.trim())
+  const chunks: string[] = []
+  for (let i = 0; i < turns.length; i += TURNS_PER_CHUNK) {
+    chunks.push(turns.slice(i, i + TURNS_PER_CHUNK).join(''))
+  }
+  return chunks
+}
+
+function splitPlainText(body: string): string[] {
+  const paragraphs = body.split(/\n\n+/)
+  const chunks: string[] = []
+  let current = ''
+  for (const para of paragraphs) {
+    if (current && current.length + para.length + 2 > CHAR_LIMIT) {
+      chunks.push(current.trim())
+      current = para
+    }
+    else {
+      current = current ? `${current}\n\n${para}` : para
+    }
+  }
+  if (current.trim()) chunks.push(current.trim())
+  return chunks
+}
+
+export function splitIntoChunks(content: string): string[] {
+  const headerMatch = content.match(/^(\[参考期間:[^\]]*\]\n---\n)([\s\S]*)$/)
+  const header = headerMatch ? headerMatch[1] : ''
+  const body = headerMatch ? headerMatch[2] : content
+
+  const isConversation = detectIsConversation(content)
+  const chunks = isConversation ? splitConversationText(body) : splitPlainText(body)
+
+  if (chunks.length <= 1) return [content]
+  return chunks.map(chunk => header + chunk)
 }
 
 function buildPrompt(content: string): { system: string; user: string } {
@@ -37,7 +78,21 @@ AIの発言は文脈理解のために参照しますが、抽出する情報は
 JSONのみを返してください（マークダウンコードブロック不可）。抽出できなければ空配列 [] を返す。
 
 形式:
-[{"date":"YYYY-MM-DD または null","polarity":"positive|negative|neutral","tag":"カテゴリ（例: キャリア・健康・仕事・学習・人間関係・お金・創作）","what":"何が起きたか・何を考えたか（1〜2文）","intensity":1から5の整数}]
+[{"date":"YYYY-MM-DD または null","polarity":"positive|negative|neutral","tag":"カテゴリ（例: キャリア・健康・仕事・学習・人間関係・お金・創作）","what":"何が起きたか・何を考えたか（1〜2文）","intensity":重要度（1〜5の整数）}]
+
+intensity の基準:
+1: 些細・日常の雑談レベル（記録はするが長期記憶には使わない）
+2: 軽度の気づき・感情
+3: 明確な感情・関心・悩み
+4: 重要な意思決定・転換点・深い気づき
+5: 人生に影響する出来事・強い感情
+
+date フィールドのルール:
+- テキスト冒頭に [参考期間: ...] がある場合、それを時期の手がかりとして必ず参照すること
+- 正確な日付（例: 2024年3月5日）がわかれば YYYY-MM-DD 形式で記録
+- 月・日が不明で年のみわかる場合は YYYY-01-01 形式（例: 2016年頃 → "2016-01-01"）
+- 期間が範囲で示されている場合（例: 1980〜2000年、2010年代）は、テキストの内容・文脈・言及されている出来事から最も可能性が高い年を推測し YYYY-01-01 形式で記録
+- 時期が全く推測できない場合のみ null
 
 ---
 ${content}`
