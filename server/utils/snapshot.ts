@@ -92,7 +92,8 @@ export async function generateWeeklySnapshot(
   const recordLines = records.map((r) => {
     const etags = parseJsonArray(r.emotionTags).join(',')
     const ttags = parseJsonArray(r.themeTags).join(',')
-    return `- ${r.date ?? '?'} [${r.polarity}] [感情:${etags}] [テーマ:${ttags}] ${r.what}`
+    const why = r.why ? ` → ${r.why}` : ''
+    return `- ${r.date ?? '?'} [${r.polarity}] [感情:${etags}] [テーマ:${ttags}] ${r.what}${why}`
   }).join('\n')
 
   const content = await generateContent(claude, `${periodStart}〜${periodEnd}の個人データを分析してください。JSONのみ返答。

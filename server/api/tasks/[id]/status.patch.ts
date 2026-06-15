@@ -90,7 +90,6 @@ export default defineEventHandler(async (event) => {
               themeTags: JSON.stringify(item.theme_tags),
               what: item.what,
               why: item.why ?? null,
-              summary: item.summary,
               intensity: Math.min(5, Math.max(1, Math.round(item.intensity))),
             })
           }

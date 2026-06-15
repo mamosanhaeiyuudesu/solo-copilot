@@ -76,7 +76,6 @@ export const intermediateRecords = sqliteTable('intermediate_records', {
   themeTags: text('theme_tags'),
   what: text('what'),
   why: text('why'),
-  summary: text('summary'),
   intensity: integer('intensity'),
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 })

@@ -11,8 +11,10 @@ interface IntermediateRecord {
   sourceType: SourceType | null
   date: string | null
   polarity: Polarity | null
-  tag: string | null
+  emotionTags: string | null
+  themeTags: string | null
   what: string | null
+  why: string | null
   intensity: number | null
   createdAt: string
 }
@@ -39,24 +41,103 @@ interface LivingProfile {
   periodEnd: string | null
 }
 
+// タグ定義
+const EMOTION_TAGS = {
+  positive: ['達成', '前進', 'スキル獲得', '気づき', '承認', '喜び', '熱中', '感謝', 'つながり'],
+  negative: ['不安', '自己不信', '停滞', '抱えすぎ', '摩擦', '疲労', 'もどかしさ'],
+  neutral: ['振り返り', '決断', '価値観', 'ビジョン'],
+} as const
+
+const THEME_TAGS = {
+  human: { label: '人間関係', tags: ['夫婦', '親子', '家族', '友人', '仕事仲間', 'クライアント'] },
+  career: { label: 'キャリア・仕事', tags: ['本業', '副業', '独立', '営業', '教育', 'インタビュー'] },
+  skill: { label: '専門領域', tags: ['AI', 'データ可視化', 'プロトタイピング', '開発'] },
+  health: { label: 'お金・健康', tags: ['お金', '健康', 'メンタル'] },
+  value: { label: '価値観・内面', tags: ['地方創生', '社会貢献', '学び', '創造'] },
+  hobby: { label: '趣味・習慣', tags: ['剣道', '子育て'] },
+} as const
+
+const ALL_EMOTION_TAGS = [
+  ...EMOTION_TAGS.positive,
+  ...EMOTION_TAGS.negative,
+  ...EMOTION_TAGS.neutral,
+]
+const ALL_THEME_TAGS = Object.values(THEME_TAGS).flatMap(g => g.tags)
+
+function parseTags(json: string | null): string[] {
+  if (!json) return []
+  try { return JSON.parse(json) as string[] }
+  catch { return [] }
+}
+
 const activeTab = ref<'intermediate' | 'snapshots'>('intermediate')
 
 // 中間記憶フィルター
 const filterPolarity = ref('')
-const filterTag = ref('')
 const filterSourceType = ref('')
 const filterDateFrom = ref('')
 const filterDateTo = ref('')
 const intermediateRecords = ref<IntermediateRecord[]>([])
 const loadingIntermediate = ref(false)
 
+// タグピッカー
+const tagPickerOpen = ref(false)
+const selectedEmotionTags = ref<Set<string>>(new Set(ALL_EMOTION_TAGS))
+const selectedThemeTags = ref<Set<string>>(new Set(ALL_THEME_TAGS))
+
+const allTagsSelected = computed(
+  () => selectedEmotionTags.value.size === ALL_EMOTION_TAGS.length
+    && selectedThemeTags.value.size === ALL_THEME_TAGS.length,
+)
+
+const deselectedCount = computed(
+  () => (ALL_EMOTION_TAGS.length - selectedEmotionTags.value.size)
+    + (ALL_THEME_TAGS.length - selectedThemeTags.value.size),
+)
+
+function toggleEmotionTag(tag: string) {
+  const next = new Set(selectedEmotionTags.value)
+  if (next.has(tag)) next.delete(tag)
+  else next.add(tag)
+  selectedEmotionTags.value = next
+}
+
+function toggleThemeTag(tag: string) {
+  const next = new Set(selectedThemeTags.value)
+  if (next.has(tag)) next.delete(tag)
+  else next.add(tag)
+  selectedThemeTags.value = next
+}
+
+function selectAllTags() {
+  selectedEmotionTags.value = new Set(ALL_EMOTION_TAGS)
+  selectedThemeTags.value = new Set(ALL_THEME_TAGS)
+}
+
+function clearAllTags() {
+  selectedEmotionTags.value = new Set()
+  selectedThemeTags.value = new Set()
+}
+
+// クライアント側タグフィルター
+const filteredRecords = computed(() => {
+  if (allTagsSelected.value) return intermediateRecords.value
+  return intermediateRecords.value.filter((r) => {
+    const et = parseTags(r.emotionTags)
+    const tt = parseTags(r.themeTags)
+    if (et.length === 0 && tt.length === 0) return true
+    return et.some(t => selectedEmotionTags.value.has(t))
+      || tt.some(t => selectedThemeTags.value.has(t))
+  })
+})
+
 // 中間記憶選択・削除
 const selectedIds = ref<Set<string>>(new Set())
 const deleting = ref(false)
 
 const allSelected = computed(() =>
-  intermediateRecords.value.length > 0
-  && intermediateRecords.value.every(r => selectedIds.value.has(r.id)),
+  filteredRecords.value.length > 0
+  && filteredRecords.value.every(r => selectedIds.value.has(r.id)),
 )
 
 function toggleAll() {
@@ -64,7 +145,7 @@ function toggleAll() {
     selectedIds.value = new Set()
   }
   else {
-    selectedIds.value = new Set(intermediateRecords.value.map(r => r.id))
+    selectedIds.value = new Set(filteredRecords.value.map(r => r.id))
   }
 }
 
@@ -158,7 +239,6 @@ async function fetchIntermediate() {
   try {
     const params: Record<string, string> = {}
     if (filterPolarity.value) params.polarity = filterPolarity.value
-    if (filterTag.value) params.tag = filterTag.value
     if (filterSourceType.value) params.sourceType = filterSourceType.value
     if (filterDateFrom.value) params.dateFrom = filterDateFrom.value
     if (filterDateTo.value) params.dateTo = filterDateTo.value
@@ -307,14 +387,148 @@ onMounted(async () => {
             <option value="negative">ネガティブ</option>
             <option value="neutral">ニュートラル</option>
           </select>
-          <input
-            v-model="filterTag"
-            type="text"
-            placeholder="タグで絞り込み"
-            class="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg px-3 py-1.5 w-36"
-            @keyup.enter="fetchIntermediate"
-            @blur="fetchIntermediate"
-          >
+
+          <!-- タグピッカー -->
+          <div class="relative">
+            <!-- バックドロップ -->
+            <div
+              v-if="tagPickerOpen"
+              class="fixed inset-0 z-40"
+              @click="tagPickerOpen = false"
+            />
+
+            <button
+              type="button"
+              :class="[
+                'flex items-center gap-2 border text-sm rounded-lg px-3 py-1.5 transition-colors',
+                allTagsSelected
+                  ? 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600'
+                  : 'bg-violet-900/30 border-violet-700/60 text-violet-300',
+              ]"
+              @click="tagPickerOpen = !tagPickerOpen"
+            >
+              <span>タグ</span>
+              <span v-if="!allTagsSelected" class="px-1.5 py-0.5 bg-violet-600 text-white text-xs rounded-full leading-none">
+                -{{ deselectedCount }}
+              </span>
+              <span class="text-slate-500 text-xs">{{ tagPickerOpen ? '▲' : '▼' }}</span>
+            </button>
+
+            <!-- ポップアップ -->
+            <div
+              v-if="tagPickerOpen"
+              class="absolute z-50 top-full left-0 mt-1 w-80 max-h-[480px] overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 shadow-2xl"
+            >
+              <!-- ヘッダー -->
+              <div class="sticky top-0 bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex items-center justify-between">
+                <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">タグで絞り込み</span>
+                <div class="flex gap-3 text-xs">
+                  <button type="button" class="text-violet-400 hover:text-violet-300 transition-colors" @click="selectAllTags">全選択</button>
+                  <button type="button" class="text-slate-500 hover:text-slate-400 transition-colors" @click="clearAllTags">全解除</button>
+                </div>
+              </div>
+
+              <div class="p-4 space-y-5">
+                <!-- 感情タグ -->
+                <div>
+                  <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">感情タグ</p>
+
+                  <div class="space-y-3">
+                    <!-- ポジティブ -->
+                    <div>
+                      <p class="text-xs text-emerald-600 mb-1.5">ポジティブ</p>
+                      <div class="flex flex-wrap gap-x-3 gap-y-1.5">
+                        <label
+                          v-for="tag in EMOTION_TAGS.positive"
+                          :key="tag"
+                          class="flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            :checked="selectedEmotionTags.has(tag)"
+                            class="accent-emerald-500 w-3.5 h-3.5 cursor-pointer"
+                            @change="toggleEmotionTag(tag)"
+                          >
+                          <span :class="['text-xs', selectedEmotionTags.has(tag) ? 'text-slate-300' : 'text-slate-600 line-through']">{{ tag }}</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <!-- ネガティブ -->
+                    <div>
+                      <p class="text-xs text-red-600 mb-1.5">ネガティブ</p>
+                      <div class="flex flex-wrap gap-x-3 gap-y-1.5">
+                        <label
+                          v-for="tag in EMOTION_TAGS.negative"
+                          :key="tag"
+                          class="flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            :checked="selectedEmotionTags.has(tag)"
+                            class="accent-red-500 w-3.5 h-3.5 cursor-pointer"
+                            @change="toggleEmotionTag(tag)"
+                          >
+                          <span :class="['text-xs', selectedEmotionTags.has(tag) ? 'text-slate-300' : 'text-slate-600 line-through']">{{ tag }}</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <!-- ニュートラル -->
+                    <div>
+                      <p class="text-xs text-slate-500 mb-1.5">ニュートラル</p>
+                      <div class="flex flex-wrap gap-x-3 gap-y-1.5">
+                        <label
+                          v-for="tag in EMOTION_TAGS.neutral"
+                          :key="tag"
+                          class="flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            :checked="selectedEmotionTags.has(tag)"
+                            class="accent-slate-400 w-3.5 h-3.5 cursor-pointer"
+                            @change="toggleEmotionTag(tag)"
+                          >
+                          <span :class="['text-xs', selectedEmotionTags.has(tag) ? 'text-slate-300' : 'text-slate-600 line-through']">{{ tag }}</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="border-t border-slate-800" />
+
+                <!-- テーマタグ -->
+                <div>
+                  <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">テーマタグ</p>
+                  <div class="space-y-3">
+                    <div
+                      v-for="(group, key) in THEME_TAGS"
+                      :key="key"
+                    >
+                      <p class="text-xs text-slate-500 mb-1.5">{{ group.label }}</p>
+                      <div class="flex flex-wrap gap-x-3 gap-y-1.5">
+                        <label
+                          v-for="tag in group.tags"
+                          :key="tag"
+                          class="flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            :checked="selectedThemeTags.has(tag)"
+                            class="accent-violet-500 w-3.5 h-3.5 cursor-pointer"
+                            @change="toggleThemeTag(tag)"
+                          >
+                          <span :class="['text-xs', selectedThemeTags.has(tag) ? 'text-slate-300' : 'text-slate-600 line-through']">{{ tag }}</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <select
             v-model="filterSourceType"
             class="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg px-3 py-1.5"
@@ -342,37 +556,47 @@ onMounted(async () => {
 
         <div v-if="loadingIntermediate" class="text-slate-600 text-sm py-10 text-center">読み込み中…</div>
 
-        <div v-else-if="intermediateRecords.length === 0" class="rounded-2xl border border-slate-800 bg-slate-900/30 p-12 text-center">
+        <div v-else-if="filteredRecords.length === 0 && intermediateRecords.length === 0" class="rounded-2xl border border-slate-800 bg-slate-900/30 p-12 text-center">
           <p class="text-slate-600 text-sm mb-1">中間記憶はまだありません</p>
           <p class="text-slate-700 text-xs">外部データをインポートしてAI処理が完了すると表示されます</p>
         </div>
 
+        <div v-else-if="filteredRecords.length === 0" class="rounded-2xl border border-slate-800 bg-slate-900/30 p-12 text-center">
+          <p class="text-slate-600 text-sm">選択中のタグに一致するデータがありません</p>
+        </div>
+
         <div v-else>
-          <!-- 一括操作バー -->
-          <div class="flex items-center gap-3 mb-3">
-            <label class="flex items-center gap-2 cursor-pointer text-sm text-slate-400 select-none">
-              <input
-                type="checkbox"
-                :checked="allSelected"
-                class="accent-violet-500 w-4 h-4 cursor-pointer"
-                @change="toggleAll"
+          <!-- 件数 + 一括操作バー -->
+          <div class="flex items-center justify-between gap-3 mb-3">
+            <div class="flex items-center gap-3">
+              <label class="flex items-center gap-2 cursor-pointer text-sm text-slate-400 select-none">
+                <input
+                  type="checkbox"
+                  :checked="allSelected"
+                  class="accent-violet-500 w-4 h-4 cursor-pointer"
+                  @change="toggleAll"
+                >
+                全選択
+              </label>
+              <button
+                v-if="selectedIds.size > 0"
+                type="button"
+                :disabled="deleting"
+                class="px-3 py-1 rounded-lg text-xs font-medium bg-red-900/50 hover:bg-red-800/60 text-red-300 border border-red-800/50 disabled:opacity-50 transition-colors"
+                @click="deleteSelected"
               >
-              全選択
-            </label>
-            <button
-              v-if="selectedIds.size > 0"
-              type="button"
-              :disabled="deleting"
-              class="px-3 py-1 rounded-lg text-xs font-medium bg-red-900/50 hover:bg-red-800/60 text-red-300 border border-red-800/50 disabled:opacity-50 transition-colors"
-              @click="deleteSelected"
-            >
-              {{ deleting ? '削除中…' : `${selectedIds.size}件を削除` }}
-            </button>
+                {{ deleting ? '削除中…' : `${selectedIds.size}件を削除` }}
+              </button>
+            </div>
+            <span class="text-xs text-slate-600">
+              {{ filteredRecords.length }}件
+              <span v-if="!allTagsSelected && intermediateRecords.length !== filteredRecords.length" class="text-slate-700">/ 全{{ intermediateRecords.length }}件</span>
+            </span>
           </div>
 
           <div class="space-y-2">
             <div
-              v-for="record in intermediateRecords"
+              v-for="record in filteredRecords"
               :key="record.id"
               :class="[
                 'rounded-xl border p-4 transition-colors cursor-pointer',
@@ -392,12 +616,23 @@ onMounted(async () => {
                 >
                 <div class="flex-1 min-w-0">
                   <div class="flex items-start justify-between gap-3 mb-1.5">
-                    <div class="flex items-center gap-2 flex-wrap">
+                    <div class="flex items-center gap-1.5 flex-wrap">
                       <span v-if="record.polarity" :class="['px-2 py-0.5 rounded-full text-xs font-medium', polarityColor[record.polarity]]">
                         {{ polarityLabel[record.polarity] }}
                       </span>
-                      <span v-if="record.tag" class="px-2 py-0.5 rounded-full text-xs text-violet-300 bg-violet-900/30">
-                        {{ record.tag }}
+                      <span
+                        v-for="tag in parseTags(record.emotionTags)"
+                        :key="tag"
+                        class="px-2 py-0.5 rounded-full text-xs text-violet-300 bg-violet-900/30"
+                      >
+                        {{ tag }}
+                      </span>
+                      <span
+                        v-for="tag in parseTags(record.themeTags)"
+                        :key="tag"
+                        class="px-2 py-0.5 rounded-full text-xs text-slate-400 bg-slate-800/60"
+                      >
+                        {{ tag }}
                       </span>
                       <span v-if="record.intensity !== null" class="text-xs text-slate-500">
                         強度: {{ record.intensity }}
@@ -411,6 +646,7 @@ onMounted(async () => {
                     </div>
                   </div>
                   <p v-if="record.what" class="text-sm text-slate-200">{{ record.what }}</p>
+                  <p v-if="record.why" class="mt-1 text-xs text-slate-500">{{ record.why }}</p>
                 </div>
               </div>
             </div>
