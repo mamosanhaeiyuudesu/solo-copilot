@@ -1,4 +1,4 @@
-import { asc, desc, eq } from 'drizzle-orm'
+import { desc, eq, gte } from 'drizzle-orm'
 import { getClaudeClient } from '../../utils/claude'
 import { getDb } from '../../utils/db'
 import { intermediateRecords, memorySnapshots } from '../../db/schema'
@@ -28,35 +28,29 @@ export default defineEventHandler(async (event) => {
 
   const result = { weekly: 0, monthly: 0, yearly: 0, livingProfile: false }
 
-  // 1. バッチ開始日を決定（最後の週次スナップショットの翌日 or 最古の中間記憶の日付）
-  const lastWeekly = await db.select({ periodEnd: memorySnapshots.periodEnd })
-    .from(memorySnapshots)
-    .where(eq(memorySnapshots.periodType, 'weekly'))
-    .orderBy(desc(memorySnapshots.periodEnd))
-    .get()
+  // 1. intensity >= 2 のレコード日付を収集し、データが存在する週だけを対象にする
+  //    （全週スキャンするとタイムアウトするため）
+  const recordDates = await db
+    .select({ date: intermediateRecords.date })
+    .from(intermediateRecords)
+    .where(gte(intermediateRecords.intensity, 2))
+    .all()
 
-  let startDate: Date
-
-  if (lastWeekly?.periodEnd) {
-    startDate = addDays(new Date(lastWeekly.periodEnd), 1)
-  }
-  else {
-    const earliest = await db.select({ date: intermediateRecords.date })
-      .from(intermediateRecords)
-      .orderBy(asc(intermediateRecords.date))
-      .get()
-    if (!earliest?.date) return result
-    startDate = new Date(earliest.date)
+  const weekSet = new Set<string>()
+  for (const { date } of recordDates) {
+    if (!date || date === 'null') continue
+    const d = new Date(date)
+    if (isNaN(d.getTime())) continue
+    const mon = getMondayOf(d)
+    const sun = addDays(mon, 6)
+    if (sun < today) weekSet.add(toDateStr(mon))
   }
 
-  // 2. 完了済み週のスナップショットを順番に生成（未処理週を遡って全て補完）
-  let monday = getMondayOf(startDate)
-  while (true) {
-    const sunday = addDays(monday, 6)
-    if (sunday >= today) break
-    const created = await generateWeeklySnapshot(db, claude, toDateStr(monday), toDateStr(sunday))
+  // 2. 時系列順に週次スナップショットを生成（generateWeeklySnapshot が冪等性を保証）
+  for (const mondayStr of [...weekSet].sort()) {
+    const sunday = toDateStr(addDays(new Date(mondayStr), 6))
+    const created = await generateWeeklySnapshot(db, claude, mondayStr, sunday)
     if (created) result.weekly++
-    monday = addDays(monday, 7)
   }
 
   // 3. 週次スナップショットが存在する完了済み月の月次スナップショットを生成
@@ -69,7 +63,6 @@ export default defineEventHandler(async (event) => {
   for (const w of allWeeklies) {
     if (!w.periodStart) continue
     const d = new Date(w.periodStart)
-    // 月をまたぐ週は月曜の月に属する
     monthsWithWeeklies.add(`${d.getFullYear()}-${d.getMonth() + 1}`)
   }
 
@@ -98,7 +91,7 @@ export default defineEventHandler(async (event) => {
     if (created) { result.yearly++; newHigherOrder = true }
   }
 
-  // 5. living_profile を更新（月次以上が新規生成された場合はフルリビルド、それ以外はローリング）
+  // 5. living_profile を更新
   if (result.weekly > 0 || result.monthly > 0 || result.yearly > 0) {
     const latestWeekly = await db.select({ periodEnd: memorySnapshots.periodEnd })
       .from(memorySnapshots)

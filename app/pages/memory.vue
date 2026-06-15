@@ -119,15 +119,27 @@ function clearAllTags() {
   selectedThemeTags.value = new Set()
 }
 
-// クライアント側タグフィルター
+// クライアント側タグフィルター＋ソート
+const sortOrder = ref<'desc' | 'asc'>('desc')
+
 const filteredRecords = computed(() => {
-  if (allTagsSelected.value) return intermediateRecords.value
-  return intermediateRecords.value.filter((r) => {
-    const et = parseTags(r.emotionTags)
-    const tt = parseTags(r.themeTags)
-    if (et.length === 0 && tt.length === 0) return true
-    return et.some(t => selectedEmotionTags.value.has(t))
-      || tt.some(t => selectedThemeTags.value.has(t))
+  const base = allTagsSelected.value
+    ? intermediateRecords.value
+    : intermediateRecords.value.filter((r) => {
+        const et = parseTags(r.emotionTags)
+        const tt = parseTags(r.themeTags)
+        if (et.length === 0 && tt.length === 0) return true
+        return et.some(t => selectedEmotionTags.value.has(t))
+          || tt.some(t => selectedThemeTags.value.has(t))
+      })
+
+  return [...base].sort((a, b) => {
+    if (a.date === null && b.date === null) return 0
+    if (a.date === null) return 1
+    if (b.date === null) return -1
+    return sortOrder.value === 'desc'
+      ? b.date.localeCompare(a.date)
+      : a.date.localeCompare(b.date)
   })
 })
 
@@ -215,6 +227,13 @@ const snapshots = ref<MemorySnapshot[]>([])
 const loadingSnapshots = ref(false)
 const selectedSnapshot = ref<MemorySnapshot | null>(null)
 const loadingDetail = ref(false)
+const snapshotSortOrder = ref<'desc' | 'asc'>('desc')
+
+const sortedSnapshots = computed(() => [...snapshots.value].sort((a, b) => {
+  const da = a.periodStart ?? a.createdAt.slice(0, 10)
+  const db = b.periodStart ?? b.createdAt.slice(0, 10)
+  return snapshotSortOrder.value === 'desc' ? db.localeCompare(da) : da.localeCompare(db)
+}))
 
 const polarityLabel: Record<Polarity, string> = {
   positive: 'ポジティブ',
@@ -552,6 +571,13 @@ onMounted(async () => {
             class="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg px-3 py-1.5"
             @change="fetchIntermediate"
           >
+          <button
+            type="button"
+            class="flex items-center gap-1 bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg px-3 py-1.5 hover:border-slate-600 transition-colors"
+            @click="sortOrder = sortOrder === 'desc' ? 'asc' : 'desc'"
+          >
+            日付 {{ sortOrder === 'desc' ? '↓' : '↑' }}
+          </button>
         </div>
 
         <div v-if="loadingIntermediate" class="text-slate-600 text-sm py-10 text-center">読み込み中…</div>
@@ -670,17 +696,24 @@ onMounted(async () => {
             <option value="manual">手動</option>
             <option value="past">過去</option>
           </select>
+          <button
+            type="button"
+            class="flex items-center gap-1 bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg px-3 py-1.5 hover:border-slate-600 transition-colors"
+            @click="snapshotSortOrder = snapshotSortOrder === 'desc' ? 'asc' : 'desc'"
+          >
+            日付 {{ snapshotSortOrder === 'desc' ? '↓' : '↑' }}
+          </button>
         </div>
 
         <div v-if="loadingSnapshots" class="text-slate-600 text-sm py-10 text-center">読み込み中…</div>
 
         <div v-else-if="snapshots.length === 0" class="rounded-2xl border border-slate-800 bg-slate-900/30 p-12 text-center">
           <p class="text-slate-600 text-sm mb-1">長期記憶はまだありません</p>
-          <p class="text-slate-700 text-xs">Phase 2でAIが自動生成します</p>
+          <p class="text-slate-700 text-xs">中間記憶が蓄積されたら「記憶を更新」ボタンで生成できます</p>
         </div>
 
         <div v-else class="space-y-2">
-          <div v-for="snap in snapshots" :key="snap.id">
+          <div v-for="snap in sortedSnapshots" :key="snap.id">
             <button
               type="button"
               :class="[
