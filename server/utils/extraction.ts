@@ -3,8 +3,11 @@ import Anthropic from '@anthropic-ai/sdk'
 export interface ExtractedItem {
   date: string | null
   polarity: 'positive' | 'negative' | 'neutral'
-  tag: string
+  emotion_tags: string[]
+  theme_tags: string[]
   what: string
+  why: string | null
+  summary: string
   intensity: number
 }
 
@@ -52,8 +55,8 @@ function splitPlainText(body: string): string[] {
 
 export function splitIntoChunks(content: string): string[] {
   const headerMatch = content.match(/^(\[参考期間:[^\]]*\]\n---\n)([\s\S]*)$/)
-  const header = headerMatch ? headerMatch[1] : ''
-  const body = headerMatch ? headerMatch[2] : content
+  const header = headerMatch?.[1] ?? ''
+  const body = headerMatch?.[2] ?? content
 
   const isConversation = detectIsConversation(content)
   const chunks = isConversation ? splitConversationText(body) : splitPlainText(body)
@@ -61,6 +64,11 @@ export function splitIntoChunks(content: string): string[] {
   if (chunks.length <= 1) return [content]
   return chunks.map(chunk => header + chunk)
 }
+
+const EMOTION_TAGS_POSITIVE = '達成・前進・スキル獲得・気づき・承認・喜び・熱中・感謝・つながり'
+const EMOTION_TAGS_NEGATIVE = '不安・自己不信・停滞・抱えすぎ・摩擦・疲労・もどかしさ'
+const EMOTION_TAGS_NEUTRAL = '振り返り・決断・価値観・ビジョン'
+const THEME_TAGS = '夫婦・親子・家族・友人・仕事仲間・クライアント・本業・副業・独立・営業・教育・インタビュー・AI・データ可視化・プロトタイピング・開発・お金・健康・メンタル・地方創生・社会貢献・学び・創造・剣道・子育て'
 
 function buildPrompt(content: string): { system: string; user: string } {
   const isConversation = detectIsConversation(content)
@@ -78,7 +86,24 @@ AIの発言は文脈理解のために参照しますが、抽出する情報は
 JSONのみを返してください（マークダウンコードブロック不可）。抽出できなければ空配列 [] を返す。
 
 形式:
-[{"date":"YYYY-MM-DD または null","polarity":"positive|negative|neutral","tag":"カテゴリ（例: キャリア・健康・仕事・学習・人間関係・お金・創作）","what":"何が起きたか・何を考えたか（1〜2文）","intensity":重要度（1〜5の整数）}]
+[{
+  "date": "YYYY-MM-DD または null",
+  "polarity": "positive|negative|neutral",
+  "emotion_tags": ["感情タグを1〜3個（下記リストから選択）"],
+  "theme_tags": ["テーマタグを1〜3個（下記リストから選択）"],
+  "what": "何が起きたか・何を考えたか（1〜2文）",
+  "why": "なぜそう感じたか・背景（1文）。推測できない場合は null",
+  "summary": "全体の総括（1〜2文）",
+  "intensity": 重要度（1〜5の整数）
+}]
+
+感情タグ（emotion_tags）リスト:
+- positive: ${EMOTION_TAGS_POSITIVE}
+- negative: ${EMOTION_TAGS_NEGATIVE}
+- neutral: ${EMOTION_TAGS_NEUTRAL}
+
+テーマタグ（theme_tags）リスト:
+${THEME_TAGS}
 
 intensity の基準:
 1: 些細・日常の雑談レベル（記録はするが長期記憶には使わない）
@@ -113,7 +138,8 @@ export async function extractIntermediateItems(
     messages: [{ role: 'user', content: user }],
   })
 
-  const text = response.content[0].type === 'text' ? response.content[0].text.trim() : '[]'
+  const block = response.content[0]
+  const text = block?.type === 'text' ? block.text.trim() : '[]'
 
   const jsonMatch = text.match(/\[[\s\S]*\]/)
   if (!jsonMatch) return []
@@ -125,7 +151,9 @@ export async function extractIntermediateItems(
         item &&
         typeof item === 'object' &&
         ['positive', 'negative', 'neutral'].includes(item.polarity) &&
-        typeof item.what === 'string',
+        typeof item.what === 'string' &&
+        Array.isArray(item.emotion_tags) &&
+        Array.isArray(item.theme_tags),
     )
   }
   catch {

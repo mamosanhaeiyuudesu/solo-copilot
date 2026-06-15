@@ -1,5 +1,11 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { and, asc, desc, eq, gte, lte } from 'drizzle-orm'
+
+function parseJsonArray(v: string | null): string[] {
+  if (!v) return []
+  try { return JSON.parse(v) as string[] }
+  catch { return [] }
+}
 import { intermediateRecords, memorySnapshots } from '../db/schema'
 import type { getDb } from './db'
 
@@ -72,16 +78,22 @@ export async function generateWeeklySnapshot(
 
   const tagMap: Record<string, { positive: number; negative: number; neutral: number }> = {}
   for (const r of records) {
-    if (!r.tag) continue
-    tagMap[r.tag] ??= { positive: 0, negative: 0, neutral: 0 }
+    const allTags = [...parseJsonArray(r.emotionTags), ...parseJsonArray(r.themeTags)]
     const p = (r.polarity ?? 'neutral') as 'positive' | 'negative' | 'neutral'
-    tagMap[r.tag]![p]++
+    for (const tag of allTags) {
+      tagMap[tag] ??= { positive: 0, negative: 0, neutral: 0 }
+      tagMap[tag]![p]++
+    }
   }
 
   const tagLines = Object.entries(tagMap)
     .map(([t, c]) => `- ${t}: ${c.positive + c.negative + c.neutral}件(+${c.positive}/-${c.negative}/0${c.neutral})`)
     .join('\n')
-  const recordLines = records.map(r => `- ${r.date ?? '?'} [${r.polarity}/${r.tag}] ${r.what}`).join('\n')
+  const recordLines = records.map((r) => {
+    const etags = parseJsonArray(r.emotionTags).join(',')
+    const ttags = parseJsonArray(r.themeTags).join(',')
+    return `- ${r.date ?? '?'} [${r.polarity}] [感情:${etags}] [テーマ:${ttags}] ${r.what}`
+  }).join('\n')
 
   const content = await generateContent(claude, `${periodStart}〜${periodEnd}の個人データを分析してください。JSONのみ返答。
 

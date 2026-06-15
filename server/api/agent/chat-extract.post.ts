@@ -59,8 +59,11 @@ export default defineEventHandler(async (event) => {
       sourceType: 'chat_message',
       date: item.date ?? null,
       polarity: item.polarity,
-      tag: item.tag,
+      emotionTags: JSON.stringify(item.emotion_tags),
+      themeTags: JSON.stringify(item.theme_tags),
       what: item.what,
+      why: item.why ?? null,
+      summary: item.summary,
       intensity: Math.min(5, Math.max(1, Math.round(item.intensity))),
     })
   }

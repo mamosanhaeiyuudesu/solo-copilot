@@ -63,16 +63,20 @@ export const importedFiles = sqliteTable('imported_files', {
 })
 
 // rawExternalData / tasks をAIで分析して抽出した中間記憶。
-// 「何を考えていたか（what）」「感情の方向（polarity）」「テーマ（tag）」「重要度（intensity）」を保持し、
-// 長期記憶生成の入力データとなる。
+// 「何を考えていたか（what）」「感情の方向（polarity）」「感情タグ（emotion_tags）」「テーマタグ（theme_tags）」
+// 「理由（why）」「要約（summary）」「重要度（intensity）」を保持し、長期記憶生成の入力データとなる。
+// emotion_tags / theme_tags は JSON 配列文字列で保存（例: '["不安","自己不信"]'）。
 export const intermediateRecords = sqliteTable('intermediate_records', {
   id: text('id').primaryKey(),
   sourceId: text('source_id'),
   sourceType: text('source_type', { enum: ['imported_file', 'task', 'chat_message'] }),
   date: text('date'),
   polarity: text('polarity', { enum: ['positive', 'negative', 'neutral'] }),
-  tag: text('tag'),
+  emotionTags: text('emotion_tags'),
+  themeTags: text('theme_tags'),
   what: text('what'),
+  why: text('why'),
+  summary: text('summary'),
   intensity: integer('intensity'),
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 })

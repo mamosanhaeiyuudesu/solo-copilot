@@ -1,4 +1,4 @@
-import { eq, and, gte, lte, desc } from 'drizzle-orm'
+import { eq, and, gte, lte, desc, asc, like } from 'drizzle-orm'
 import { getDb } from '../../utils/db'
 import { intermediateRecords } from '../../db/schema'
 
@@ -11,11 +11,14 @@ export default defineEventHandler(async (event) => {
   if (query.polarity && ['positive', 'negative', 'neutral'].includes(query.polarity as string)) {
     conditions.push(eq(intermediateRecords.polarity, query.polarity as 'positive' | 'negative' | 'neutral'))
   }
-  if (query.tag) {
-    conditions.push(eq(intermediateRecords.tag, query.tag as string))
+  if (query.emotionTag) {
+    conditions.push(like(intermediateRecords.emotionTags, `%"${query.emotionTag}"%`))
+  }
+  if (query.themeTag) {
+    conditions.push(like(intermediateRecords.themeTags, `%"${query.themeTag}"%`))
   }
   if (query.sourceType && ['imported_file', 'task', 'chat_message'].includes(query.sourceType as string)) {
-    conditions.push(eq(intermediateRecords.sourceType, query.sourceType as 'imported_file' | 'task'))
+    conditions.push(eq(intermediateRecords.sourceType, query.sourceType as 'imported_file' | 'task' | 'chat_message'))
   }
   if (query.dateFrom) {
     conditions.push(gte(intermediateRecords.date, query.dateFrom as string))
@@ -28,7 +31,7 @@ export default defineEventHandler(async (event) => {
     .select()
     .from(intermediateRecords)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(intermediateRecords.createdAt))
+    .orderBy(desc(intermediateRecords.date), asc(intermediateRecords.createdAt))
     .all()
 
   return { records }
