@@ -76,17 +76,17 @@ const row2 = [
     <AuthModal v-if="!isAuthed" />
 
     <div v-else class="py-4">
-      <div class="mb-10 flex items-start justify-between">
+      <div class="mb-8 sm:mb-10 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
-          <h1 class="text-3xl font-black text-slate-50 tracking-tight">
+          <h1 class="text-2xl sm:text-3xl font-black text-slate-50 tracking-tight">
             ダッシュボード
           </h1>
-          <p class="mt-2 text-slate-500">データを通じて自分を深く知り、夢の実現までを伴走するAI</p>
+          <p class="mt-2 text-slate-500 text-sm sm:text-base">データを通じて自分を深く知り、夢の実現までを伴走するAI</p>
         </div>
         <component
           :is="NuxtLink"
           to="/memory"
-          class="flex items-center gap-1.5 text-violet-400 hover:text-violet-300 transition-colors text-sm font-medium mt-1"
+          class="flex items-center gap-1.5 text-violet-400 hover:text-violet-300 transition-colors text-sm font-medium sm:mt-1"
         >
           <span class="text-base">◑</span>
           <span>記憶ビューア</span>
@@ -95,14 +95,14 @@ const row2 = [
       </div>
 
       <div class="flex flex-col gap-4">
-        <div class="grid grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <component
             :is="tool.available ? NuxtLink : 'div'"
             v-for="tool in row1"
             :key="tool.label"
             :to="tool.available ? tool.to : undefined"
             :class="[
-              'group relative block rounded-2xl p-6 border bg-gradient-to-br transition-all duration-200',
+              'group relative block rounded-2xl p-5 sm:p-6 border bg-gradient-to-br transition-all duration-200',
               tool.accent,
               tool.border,
               tool.available ? 'cursor-pointer hover:shadow-lg hover:shadow-amber-900/20 hover:-translate-y-0.5' : 'cursor-default opacity-50',
@@ -123,14 +123,14 @@ const row2 = [
           </component>
         </div>
 
-        <div class="grid grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <component
             :is="tool.available ? NuxtLink : 'div'"
             v-for="tool in row2"
             :key="tool.label"
             :to="tool.available ? tool.to : undefined"
             :class="[
-              'group relative block rounded-2xl p-6 border bg-gradient-to-br transition-all duration-200',
+              'group relative block rounded-2xl p-5 sm:p-6 border bg-gradient-to-br transition-all duration-200',
               tool.accent,
               tool.border,
               tool.available ? 'cursor-pointer hover:shadow-lg hover:shadow-sky-900/20 hover:-translate-y-0.5' : 'cursor-default opacity-50',

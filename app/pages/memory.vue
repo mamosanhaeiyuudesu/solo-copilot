@@ -327,15 +327,15 @@ onMounted(async () => {
     <AuthModal v-if="!isAuthed" />
 
     <div v-else class="py-4">
-      <div class="mb-6 flex items-start justify-between gap-4">
+      <div class="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 class="text-3xl font-black text-slate-50 tracking-tight">記憶ビューア</h1>
-          <p class="mt-2 text-slate-500">中間記憶と長期記憶を閲覧する</p>
+          <h1 class="text-2xl sm:text-3xl font-black text-slate-50 tracking-tight">記憶ビューア</h1>
+          <p class="mt-2 text-slate-500 text-sm sm:text-base">中間記憶と長期記憶を閲覧する</p>
         </div>
         <button
           type="button"
           :disabled="batching"
-          class="shrink-0 mt-1 px-4 py-2 rounded-lg text-sm font-medium bg-violet-700 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
+          class="shrink-0 sm:mt-1 px-4 py-2 rounded-lg text-sm font-medium bg-violet-700 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
           @click="runBatch"
         >
           {{ batching ? '処理中…' : '記憶を更新' }}
@@ -344,13 +344,13 @@ onMounted(async () => {
 
       <!-- バッチ結果 / プロファイルパネル -->
       <div class="mb-6 rounded-xl border border-slate-800 bg-slate-900/30 p-4">
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
           <div class="text-sm">
             <span v-if="livingProfile?.periodEnd" class="text-slate-400">
               プロファイル最終更新: <span class="text-slate-300">{{ livingProfile.periodEnd }}</span>
             </span>
             <span v-else class="text-slate-600">プロファイル未生成</span>
-            <span v-if="batchResult" class="ml-4 text-xs text-slate-500">
+            <span v-if="batchResult" class="block sm:inline sm:ml-4 mt-1 sm:mt-0 text-xs text-slate-500">
               週次{{ batchResult.weekly }}件・月次{{ batchResult.monthly }}件・年次{{ batchResult.yearly }}件を処理
               <span v-if="batchResult.livingProfile" class="text-violet-400">・プロファイル更新済み</span>
             </span>
@@ -358,7 +358,7 @@ onMounted(async () => {
           <button
             v-if="livingProfile?.aiSummary"
             type="button"
-            class="text-xs text-slate-500 hover:text-slate-300 transition-colors shrink-0"
+            class="text-xs text-slate-500 hover:text-slate-300 transition-colors shrink-0 self-start sm:self-auto"
             @click="showProfile = !showProfile"
           >
             {{ showProfile ? 'プロファイルを隠す' : 'プロファイルを表示' }}
@@ -436,7 +436,7 @@ onMounted(async () => {
             <!-- ポップアップ -->
             <div
               v-if="tagPickerOpen"
-              class="absolute z-50 top-full left-0 mt-1 w-80 max-h-[480px] overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 shadow-2xl"
+              class="absolute z-50 top-full left-0 mt-1 w-[min(20rem,calc(100vw-2rem))] max-h-[480px] overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 shadow-2xl"
             >
               <!-- ヘッダー -->
               <div class="sticky top-0 bg-slate-900 border-b border-slate-800 px-4 py-2.5 flex items-center justify-between">

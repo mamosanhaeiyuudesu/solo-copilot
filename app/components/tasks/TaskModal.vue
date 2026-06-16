@@ -141,7 +141,7 @@ function toggleTag(id: string) {
               />
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">優先度</label>
                 <USelect
@@ -166,7 +166,7 @@ function toggleTag(id: string) {
               </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">期日</label>
                 <UPopover

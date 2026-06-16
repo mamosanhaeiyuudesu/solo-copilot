@@ -240,12 +240,12 @@ async function onDrop(targetStatus: 'todo' | 'doing' | 'done') {
         <span class="text-sm">読み込み中...</span>
       </div>
 
-      <div v-else class="grid grid-cols-3 gap-4">
+      <div v-else class="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-3 sm:overflow-visible">
         <div
           v-for="col in COLUMNS"
           :key="col.status"
           :class="[
-            'rounded-2xl border border-slate-800/60 flex flex-col min-h-[70vh] overflow-hidden transition-all duration-150',
+            'rounded-2xl border border-slate-800/60 flex flex-col min-h-[70vh] overflow-hidden transition-all duration-150 shrink-0 w-[85vw] snap-start sm:w-auto sm:shrink',
             col.headerBg,
             draggingTask && dragOverColumn === col.status ? 'border-slate-600/80 shadow-lg shadow-black/20' : '',
           ]"

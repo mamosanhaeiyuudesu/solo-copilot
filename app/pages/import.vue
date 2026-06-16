@@ -159,8 +159,8 @@ onMounted(async () => {
 
     <div v-else class="py-4 max-w-3xl">
       <div class="mb-8">
-        <h1 class="text-3xl font-black text-slate-50 tracking-tight">外部データ取り込み</h1>
-        <p class="mt-2 text-slate-500">過去のログをインポートして、AIの素材として蓄積する</p>
+        <h1 class="text-2xl sm:text-3xl font-black text-slate-50 tracking-tight">外部データ取り込み</h1>
+        <p class="mt-2 text-slate-500 text-sm sm:text-base">過去のログをインポートして、AIの素材として蓄積する</p>
       </div>
 
       <!-- インポートセクション -->
@@ -197,8 +197,8 @@ onMounted(async () => {
           <p class="text-slate-600 text-sm">インポート履歴はありません</p>
         </div>
 
-        <div v-else class="rounded-2xl border border-slate-800 overflow-hidden">
-          <table class="w-full text-sm">
+        <div v-else class="rounded-2xl border border-slate-800 overflow-x-auto">
+          <table class="w-full text-sm min-w-[480px]">
             <thead>
               <tr class="border-b border-slate-800 text-left">
                 <th class="px-4 py-3 text-xs text-slate-500 font-medium">ファイル名</th>
@@ -233,10 +233,10 @@ onMounted(async () => {
 
     <!-- テキスト貼り付けモーダル -->
     <div v-if="showPasteModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" @click.self="showPasteModal = false; pasteText = ''; pasteName = ''; pasteDate = ''">
-      <div class="rounded-2xl border border-slate-700 bg-slate-900 p-6 w-full max-w-lg mx-4 space-y-4">
+      <div class="rounded-2xl border border-slate-700 bg-slate-900 p-5 sm:p-6 w-full max-w-lg mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
         <h3 class="text-slate-100 font-semibold">テキストを貼り付け</h3>
         <p class="text-slate-500 text-xs">テキストをそのまま貼り付けてください。.txt ファイルとしてインポートされます。</p>
-        <div class="flex gap-3">
+        <div class="flex flex-col sm:flex-row gap-3">
           <div class="flex-1">
             <label class="block text-xs text-slate-400 mb-1">ファイル名 <span class="text-red-400">*</span></label>
             <input
@@ -246,7 +246,7 @@ onMounted(async () => {
               placeholder="例: ChatGPT会話ログ_2024"
             >
           </div>
-          <div class="w-40">
+          <div class="w-full sm:w-40">
             <label class="block text-xs text-slate-400 mb-1">内容の日時 <span class="text-red-400">*</span></label>
             <input
               v-model="pasteDate"
