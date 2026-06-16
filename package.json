@@ -21,6 +21,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250525.0",
     "@nuxt/ui": "^3.0.0",
+    "@vite-pwa/nuxt": "^1.1.1",
     "drizzle-kit": "^0.30.0",
     "typescript": "^5.7.0",
     "wrangler": "^4.0.0"

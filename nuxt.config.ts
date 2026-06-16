@@ -4,9 +4,43 @@ export default defineNuxtConfig({
   },
   compatibilityDate: '2026-05-29',
 
-  modules: ['@nuxt/ui'],
+  modules: ['@nuxt/ui', '@vite-pwa/nuxt'],
 
   css: ['~/assets/css/main.css'],
+
+  pwa: {
+    registerType: 'autoUpdate',
+    manifest: {
+      name: 'MY AGENT',
+      short_name: 'MY AGENT',
+      description: '個人用AIエージェントアプリ',
+      theme_color: '#0f172a',
+      background_color: '#0f172a',
+      display: 'standalone',
+      start_url: '/',
+      icons: [
+        { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
+        { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
+        { src: 'maskable-icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      ],
+    },
+    workbox: {
+      navigateFallback: '/',
+      navigateFallbackDenylist: [/^\/api\//],
+      runtimeCaching: [
+        {
+          urlPattern: /^\/api\/.*/,
+          handler: 'NetworkOnly',
+        },
+      ],
+    },
+    client: {
+      installPrompt: true,
+    },
+    devOptions: {
+      enabled: false,
+    },
+  },
 
   colorMode: {
     preference: 'dark',
