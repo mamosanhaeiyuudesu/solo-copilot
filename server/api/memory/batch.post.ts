@@ -91,15 +91,20 @@ export default defineEventHandler(async (event) => {
     if (created) { result.yearly++; newHigherOrder = true }
   }
 
-  // 5. living_profile を更新
-  if (result.weekly > 0 || result.monthly > 0 || result.yearly > 0) {
-    const latestWeekly = await db.select({ periodEnd: memorySnapshots.periodEnd })
+  // 5. living_profile を更新（新規スナップショットがある場合、またはプロファイル未生成の場合）
+  const latestWeekly = await db.select({ periodEnd: memorySnapshots.periodEnd })
+    .from(memorySnapshots)
+    .where(eq(memorySnapshots.periodType, 'weekly'))
+    .orderBy(desc(memorySnapshots.periodEnd))
+    .get()
+
+  if (latestWeekly?.periodEnd) {
+    const existingProfile = await db.select({ id: memorySnapshots.id })
       .from(memorySnapshots)
-      .where(eq(memorySnapshots.periodType, 'weekly'))
-      .orderBy(desc(memorySnapshots.periodEnd))
+      .where(eq(memorySnapshots.periodType, 'living_profile'))
       .get()
 
-    if (latestWeekly?.periodEnd) {
+    if (!existingProfile || result.weekly > 0 || result.monthly > 0 || result.yearly > 0) {
       await updateLivingProfile(db, claude, newHigherOrder ? 'full' : 'rolling', latestWeekly.periodEnd)
       result.livingProfile = true
     }

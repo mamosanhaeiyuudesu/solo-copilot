@@ -6,6 +6,13 @@ function parseJsonArray(v: string | null): string[] {
   try { return JSON.parse(v) as string[] }
   catch { return [] }
 }
+
+// Claude が focus を文字列ではなく配列で返すことがあるため文字列に正規化する
+function normalizeFocus(focus: unknown): string {
+  if (Array.isArray(focus)) return focus.join('\n')
+  if (typeof focus === 'string') return focus
+  return ''
+}
 import { intermediateRecords, memorySnapshots } from '../db/schema'
 import type { getDb } from './db'
 
@@ -282,9 +289,9 @@ ${sections}
     const match = text.match(/\{[\s\S]*\}/)
     if (!match) return
     try {
-      const parsed = JSON.parse(match[0]) as { profile: string; focus: string }
+      const parsed = JSON.parse(match[0]) as { profile: string; focus: unknown }
       profileText = parsed.profile
-      focusText = parsed.focus ?? ''
+      focusText = normalizeFocus(parsed.focus)
     }
     catch {
       return
@@ -335,9 +342,9 @@ JSON形式で返答:
     const match = text.match(/\{[\s\S]*\}/)
     if (!match) return
     try {
-      const parsed = JSON.parse(match[0]) as { profile: string; focus: string }
+      const parsed = JSON.parse(match[0]) as { profile: string; focus: unknown }
       profileText = parsed.profile
-      focusText = parsed.focus ?? prev.recommendedFocus ?? ''
+      focusText = normalizeFocus(parsed.focus) || prev.recommendedFocus || ''
     }
     catch {
       return
