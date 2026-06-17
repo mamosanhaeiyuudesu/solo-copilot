@@ -2,6 +2,7 @@
   "name": "solo-copilot",
   "private": true,
   "type": "module",
+  "packageManager": "yarn@4.9.1",
   "scripts": {
     "dev:ui": "nuxt dev --port 3010",
     "build": "nuxt build",
