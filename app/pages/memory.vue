@@ -32,8 +32,15 @@ interface MemorySnapshot {
   integratedAdvice: string | null
   financeSummary: string | null
   healthTrend: string | null
+  headline: string | null
+  topThemes: string | null
+  emotionSummary: string | null
+  polaritySummary: string | null
   createdAt: string
 }
+
+interface ThemeCount { theme: string; count: number }
+interface EmotionCount { emotion: string; count: number }
 
 interface LivingProfile {
   aiSummary: string | null
@@ -70,7 +77,10 @@ function parseTags(json: string | null): string[] {
   catch { return [] }
 }
 
-const activeTab = ref<'intermediate' | 'snapshots'>('intermediate')
+const activeTab = ref<'timeline' | 'intermediate'>('timeline')
+
+// タイムライン
+const timelineZoom = ref<'weekly' | 'monthly' | 'yearly'>('weekly')
 
 // 中間記憶フィルター
 const filterPolarity = ref('')
@@ -222,18 +232,22 @@ async function runBatch() {
   }
 }
 
-const filterPeriodType = ref('')
 const snapshots = ref<MemorySnapshot[]>([])
 const loadingSnapshots = ref(false)
 const selectedSnapshot = ref<MemorySnapshot | null>(null)
 const loadingDetail = ref(false)
-const snapshotSortOrder = ref<'desc' | 'asc'>('desc')
 
-const sortedSnapshots = computed(() => [...snapshots.value].sort((a, b) => {
-  const da = a.periodStart ?? a.createdAt.slice(0, 10)
-  const db = b.periodStart ?? b.createdAt.slice(0, 10)
-  return snapshotSortOrder.value === 'desc' ? db.localeCompare(da) : da.localeCompare(db)
-}))
+function parseThemeCounts(json: string | null): ThemeCount[] {
+  if (!json) return []
+  try { return JSON.parse(json) as ThemeCount[] }
+  catch { return [] }
+}
+
+function parseEmotionCounts(json: string | null): EmotionCount[] {
+  if (!json) return []
+  try { return JSON.parse(json) as EmotionCount[] }
+  catch { return [] }
+}
 
 const polarityLabel: Record<Polarity, string> = {
   positive: 'ポジティブ',
@@ -276,10 +290,8 @@ async function fetchIntermediate() {
 async function fetchSnapshots() {
   loadingSnapshots.value = true
   try {
-    const params: Record<string, string> = {}
-    if (filterPeriodType.value) params.periodType = filterPeriodType.value
-
-    const res = await $fetch<{ snapshots: MemorySnapshot[] }>('/api/memory/snapshots', { params })
+    // タイムラインは全 periodType を取得してズームごとにクライアント側で振り分ける
+    const res = await $fetch<{ snapshots: MemorySnapshot[] }>('/api/memory/snapshots')
     snapshots.value = res.snapshots
   }
   catch {
@@ -288,6 +300,10 @@ async function fetchSnapshots() {
   finally {
     loadingSnapshots.value = false
   }
+}
+
+function selectTimelineSnapshot(snap: MemorySnapshot) {
+  selectSnapshot(snap)
 }
 
 async function selectSnapshot(snapshot: MemorySnapshot) {
@@ -310,13 +326,18 @@ async function selectSnapshot(snapshot: MemorySnapshot) {
 
 watch(activeTab, (tab) => {
   if (tab === 'intermediate' && intermediateRecords.value.length === 0) fetchIntermediate()
-  if (tab === 'snapshots' && snapshots.value.length === 0) fetchSnapshots()
+  if (tab === 'timeline' && snapshots.value.length === 0) fetchSnapshots()
+})
+
+// バッチ後はタイムラインを再取得して最新スナップショットを反映
+watch(batchResult, (r) => {
+  if (r) fetchSnapshots()
 })
 
 onMounted(async () => {
   await checkAuth()
   if (isAuthed.value) {
-    fetchIntermediate()
+    fetchSnapshots()
     fetchLivingProfile()
   }
 })
@@ -377,7 +398,7 @@ onMounted(async () => {
       <!-- タブ -->
       <div class="flex gap-1 mb-6 border-b border-slate-800">
         <button
-          v-for="tab in [{ key: 'intermediate', label: '中間記憶' }, { key: 'snapshots', label: '長期記憶' }] as const"
+          v-for="tab in [{ key: 'timeline', label: 'タイムライン' }, { key: 'intermediate', label: '中間記憶' }] as const"
           :key="tab.key"
           type="button"
           :class="[
@@ -680,113 +701,85 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- 記憶タブ -->
-      <div v-else-if="activeTab === 'snapshots'">
-        <!-- フィルター -->
-        <div class="flex gap-3 mb-5">
-          <select
-            v-model="filterPeriodType"
-            class="bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg px-3 py-1.5"
-            @change="fetchSnapshots"
-          >
-            <option value="">period: すべて</option>
-            <option value="weekly">週次</option>
-            <option value="monthly">月次</option>
-            <option value="yearly">年次</option>
-            <option value="manual">手動</option>
-            <option value="past">過去</option>
-          </select>
-          <button
-            type="button"
-            class="flex items-center gap-1 bg-slate-800 border border-slate-700 text-slate-300 text-sm rounded-lg px-3 py-1.5 hover:border-slate-600 transition-colors"
-            @click="snapshotSortOrder = snapshotSortOrder === 'desc' ? 'asc' : 'desc'"
-          >
-            日付 {{ snapshotSortOrder === 'desc' ? '↓' : '↑' }}
-          </button>
-        </div>
-
+      <!-- タイムラインタブ -->
+      <div v-else-if="activeTab === 'timeline'">
         <div v-if="loadingSnapshots" class="text-slate-600 text-sm py-10 text-center">読み込み中…</div>
 
-        <div v-else-if="snapshots.length === 0" class="rounded-2xl border border-slate-800 bg-slate-900/30 p-12 text-center">
-          <p class="text-slate-600 text-sm mb-1">長期記憶はまだありません</p>
-          <p class="text-slate-700 text-xs">中間記憶が蓄積されたら「記憶を更新」ボタンで生成できます</p>
-        </div>
+        <template v-else>
+          <MemoryTimelineView
+            v-model:zoom="timelineZoom"
+            :snapshots="snapshots"
+            :selected-id="selectedSnapshot?.id ?? null"
+            @select="selectTimelineSnapshot"
+          />
 
-        <div v-else class="space-y-2">
-          <div v-for="snap in sortedSnapshots" :key="snap.id">
-            <button
-              type="button"
-              :class="[
-                'w-full text-left rounded-xl border px-4 py-3 transition-colors',
-                selectedSnapshot?.id === snap.id
-                  ? 'border-violet-600/60 bg-violet-900/20'
-                  : 'border-slate-800 bg-slate-900/50 hover:border-slate-700',
-              ]"
-              @click="selectSnapshot(snap)"
-            >
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                  <span class="px-2 py-0.5 rounded-full text-xs font-medium text-violet-300 bg-violet-900/30">
-                    {{ periodLabel[snap.periodType] }}
-                  </span>
-                  <span class="text-sm text-slate-300">
-                    {{ snap.periodStart ?? snap.createdAt.slice(0, 10) }}
-                    <span v-if="snap.periodEnd"> 〜 {{ snap.periodEnd }}</span>
-                  </span>
-                </div>
-                <span class="text-slate-600 text-xs">{{ selectedSnapshot?.id === snap.id ? '▲' : '▼' }}</span>
+          <!-- 詳細パネル -->
+          <div
+            v-if="selectedSnapshot"
+            class="mt-4 rounded-xl border border-violet-600/30 bg-slate-900/80 p-5 space-y-4"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <span class="px-2 py-0.5 rounded-full text-xs font-medium text-violet-300 bg-violet-900/30">
+                  {{ periodLabel[selectedSnapshot.periodType] }}
+                </span>
+                <span class="text-sm text-slate-300">
+                  {{ selectedSnapshot.periodStart ?? selectedSnapshot.createdAt.slice(0, 10) }}
+                  <span v-if="selectedSnapshot.periodEnd"> 〜 {{ selectedSnapshot.periodEnd }}</span>
+                </span>
               </div>
-            </button>
-
-            <!-- 詳細 -->
-            <div
-              v-if="selectedSnapshot?.id === snap.id"
-              class="rounded-b-xl border border-t-0 border-violet-600/30 bg-slate-900/80 p-5 space-y-4"
-            >
-              <div v-if="loadingDetail" class="text-slate-600 text-sm text-center py-4">読み込み中…</div>
-              <template v-else>
-                <div v-if="selectedSnapshot.achievements" class="space-y-1">
-                  <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">できていること</h3>
-                  <p class="text-sm text-slate-300 whitespace-pre-wrap">{{ selectedSnapshot.achievements }}</p>
-                </div>
-                <div v-if="selectedSnapshot.struggles" class="space-y-1">
-                  <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">苦しんでいること</h3>
-                  <p class="text-sm text-slate-300 whitespace-pre-wrap">{{ selectedSnapshot.struggles }}</p>
-                </div>
-                <div v-if="selectedSnapshot.interests" class="space-y-1">
-                  <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">好きなこと・関心</h3>
-                  <p class="text-sm text-slate-300 whitespace-pre-wrap">{{ selectedSnapshot.interests }}</p>
-                </div>
-                <div v-if="selectedSnapshot.aiSummary" class="space-y-1">
-                  <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">AIサマリー</h3>
-                  <p class="text-sm text-slate-300 whitespace-pre-wrap">{{ selectedSnapshot.aiSummary }}</p>
-                </div>
-                <div v-if="selectedSnapshot.recommendedFocus" class="space-y-1">
-                  <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">推奨フォーカス領域</h3>
-                  <p class="text-sm text-slate-300 whitespace-pre-wrap">{{ selectedSnapshot.recommendedFocus }}</p>
-                </div>
-                <div v-if="selectedSnapshot.integratedAdvice" class="space-y-1">
-                  <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">統合アドバイス</h3>
-                  <p class="text-sm text-slate-300 whitespace-pre-wrap">{{ selectedSnapshot.integratedAdvice }}</p>
-                </div>
-                <div v-if="selectedSnapshot.financeSummary" class="space-y-1">
-                  <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">財務サマリー</h3>
-                  <p class="text-sm text-slate-300 whitespace-pre-wrap">{{ selectedSnapshot.financeSummary }}</p>
-                </div>
-                <div v-if="selectedSnapshot.healthTrend" class="space-y-1">
-                  <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">健康トレンド</h3>
-                  <p class="text-sm text-slate-300 whitespace-pre-wrap">{{ selectedSnapshot.healthTrend }}</p>
-                </div>
-                <p
-                  v-if="!selectedSnapshot.achievements && !selectedSnapshot.struggles && !selectedSnapshot.aiSummary"
-                  class="text-slate-600 text-sm text-center py-2"
-                >
-                  詳細データがありません
-                </p>
-              </template>
+              <button
+                type="button"
+                class="text-slate-500 hover:text-slate-300 text-sm"
+                @click="selectedSnapshot = null"
+              >✕</button>
             </div>
+
+            <div v-if="loadingDetail" class="text-slate-600 text-sm text-center py-4">読み込み中…</div>
+            <template v-else>
+              <p v-if="selectedSnapshot.headline" class="text-base font-bold text-slate-100">
+                {{ selectedSnapshot.headline }}
+              </p>
+
+              <!-- テーマ・感情タグ -->
+              <div v-if="parseThemeCounts(selectedSnapshot.topThemes).length || parseEmotionCounts(selectedSnapshot.emotionSummary).length" class="flex flex-wrap gap-1.5">
+                <span
+                  v-for="t in parseThemeCounts(selectedSnapshot.topThemes)"
+                  :key="`th-${t.theme}`"
+                  class="px-2 py-0.5 rounded-full text-xs text-slate-400 bg-slate-800/60"
+                >#{{ t.theme }} {{ t.count }}</span>
+                <span
+                  v-for="e in parseEmotionCounts(selectedSnapshot.emotionSummary)"
+                  :key="`em-${e.emotion}`"
+                  class="px-2 py-0.5 rounded-full text-xs text-violet-300 bg-violet-900/30"
+                >{{ e.emotion }} {{ e.count }}</span>
+              </div>
+
+              <div v-if="selectedSnapshot.achievements" class="space-y-1">
+                <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">できていること</h3>
+                <p class="text-sm text-slate-300 whitespace-pre-wrap">{{ selectedSnapshot.achievements }}</p>
+              </div>
+              <div v-if="selectedSnapshot.struggles" class="space-y-1">
+                <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">苦しんでいること</h3>
+                <p class="text-sm text-slate-300 whitespace-pre-wrap">{{ selectedSnapshot.struggles }}</p>
+              </div>
+              <div v-if="selectedSnapshot.interests" class="space-y-1">
+                <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">好きなこと・関心</h3>
+                <p class="text-sm text-slate-300 whitespace-pre-wrap">{{ selectedSnapshot.interests }}</p>
+              </div>
+              <div v-if="selectedSnapshot.aiSummary" class="space-y-1">
+                <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider">AIサマリー</h3>
+                <p class="text-sm text-slate-300 whitespace-pre-wrap">{{ selectedSnapshot.aiSummary }}</p>
+              </div>
+              <p
+                v-if="!selectedSnapshot.achievements && !selectedSnapshot.struggles && !selectedSnapshot.aiSummary"
+                class="text-slate-600 text-sm text-center py-2"
+              >
+                詳細データがありません
+              </p>
+            </template>
           </div>
-        </div>
+        </template>
       </div>
     </div>
   </div>

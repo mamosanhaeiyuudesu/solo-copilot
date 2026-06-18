@@ -20,7 +20,9 @@ export const messages = sqliteTable('messages', {
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 })
 
-// タスク管理。見積もり・実績工数を持ち、AIによる振り返り分析の入力源になる。
+// ===== 非推奨（旧タスク管理機能）=====
+// UI・API・ナビからは完全削除済み。テーブル本体は既存データ保持のため残置している。
+// 新規参照しないこと。将来データ不要と判断したら DROP マイグレーションで物理削除する。
 export const tasks = sqliteTable('tasks', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
@@ -35,7 +37,6 @@ export const tasks = sqliteTable('tasks', {
   updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
 })
 
-// タスクに付与するラベル（キャリア・健康・副業など）。中間記憶の tag とは独立した管理。
 export const tags = sqliteTable('tags', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -44,13 +45,13 @@ export const tags = sqliteTable('tags', {
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 })
 
-// tasks と tags の多対多中間テーブル。
 export const taskTags = sqliteTable('task_tags', {
   taskId: text('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
   tagId: text('tag_id').notNull().references(() => tags.id, { onDelete: 'cascade' }),
 }, (t) => ({
   pk: primaryKey({ columns: [t.taskId, t.tagId] }),
 }))
+// ===== 非推奨ここまで =====
 
 // ChatGPT・Claude・日記などのインポートファイル。ファイル名・原文・処理ステータスを一元管理する。
 export const importedFiles = sqliteTable('imported_files', {
@@ -62,7 +63,8 @@ export const importedFiles = sqliteTable('imported_files', {
   updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
 })
 
-// rawExternalData / tasks をAIで分析して抽出した中間記憶。
+// インポートファイル / チャットメッセージをAIで分析して抽出した中間記憶。
+// （source_type の 'task' は旧タスク管理機能の名残。既存データ互換のため enum に残す）
 // 「何を考えていたか（what）」「感情の方向（polarity）」「感情タグ（emotion_tags）」「テーマタグ（theme_tags）」
 // 「理由（why）」「要約（summary）」「重要度（intensity）」を保持し、長期記憶生成の入力データとなる。
 // emotion_tags / theme_tags は JSON 配列文字列で保存（例: '["不安","自己不信"]'）。
@@ -106,5 +108,10 @@ export const memorySnapshots = sqliteTable('memory_snapshots', {
   integratedAdvice: text('integrated_advice'),
   financeSummary: text('finance_summary'),
   healthTrend: text('health_trend'),
+  // タイムライン可視化用。すべて JSON 文字列または短文。
+  headline: text('headline'), // 主要イベント見出し（10〜15文字。複数の場合は JSON 配列文字列）
+  topThemes: text('top_themes'), // JSON: [{theme, count}]（themeTags 集計）
+  emotionSummary: text('emotion_summary'), // JSON: [{emotion, count}]（emotionTags 集計）
+  polaritySummary: text('polarity_summary'), // JSON: {positive, negative, neutral}
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 })
