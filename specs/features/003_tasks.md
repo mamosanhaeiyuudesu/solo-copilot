@@ -1,8 +1,15 @@
 # タスク管理 スペック
 
-**ステータス**: Done
+**ステータス**: Removed（2026-06 にスコープ絞り込みで削除）
 **スペック番号**: 003
 **作成日**: 2026-05-29
+
+> ⚠️ **この機能は完全に削除された。** 2026-06 のスコープ絞り込みで「記憶ツール」へ軸足を移し、タスク管理を機能から外した。
+> - 削除済み: `app/pages/tasks.vue`・`app/components/tasks/`・`app/composables/useTasks.ts`・`useLocalTaskStore.ts`・`server/api/tasks/**`・`server/api/tags/**`・`app/types/api.ts` の Task/Tag 型
+> - DBの `tasks` / `tags` / `task_tags` テーブルは **DROP 済み**（migration `0013_drop_task_tables.sql`）
+> - `intermediate_records.source_type` の `'task'` 値も enum から削除（対象データ0件のため）。現在は `'imported_file' | 'chat_message'` のみ
+>
+> 以下は削除前の仕様（履歴として保持）。
 
 ## 概要
 

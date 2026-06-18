@@ -17,8 +17,8 @@ export default defineEventHandler(async (event) => {
   if (query.themeTag) {
     conditions.push(like(intermediateRecords.themeTags, `%"${query.themeTag}"%`))
   }
-  if (query.sourceType && ['imported_file', 'task', 'chat_message'].includes(query.sourceType as string)) {
-    conditions.push(eq(intermediateRecords.sourceType, query.sourceType as 'imported_file' | 'task' | 'chat_message'))
+  if (query.sourceType && ['imported_file', 'chat_message'].includes(query.sourceType as string)) {
+    conditions.push(eq(intermediateRecords.sourceType, query.sourceType as 'imported_file' | 'chat_message'))
   }
   if (query.dateFrom) {
     conditions.push(gte(intermediateRecords.date, query.dateFrom as string))

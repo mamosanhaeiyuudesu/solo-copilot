@@ -2,7 +2,7 @@
 const { isAuthed, checkAuth } = useAuth()
 
 type Polarity = 'positive' | 'negative' | 'neutral'
-type SourceType = 'imported_file' | 'task' | 'chat_message'
+type SourceType = 'imported_file' | 'chat_message'
 type PeriodType = 'weekly' | 'monthly' | 'yearly' | 'manual' | 'past'
 
 interface IntermediateRecord {
@@ -576,7 +576,6 @@ onMounted(async () => {
           >
             <option value="">ソース: すべて</option>
             <option value="imported_file">外部データ</option>
-            <option value="task">タスク</option>
             <option value="chat_message">チャット</option>
           </select>
           <input
@@ -688,7 +687,7 @@ onMounted(async () => {
                     <div class="flex items-center gap-2 text-xs text-slate-600 shrink-0">
                       <span>{{ record.date ?? record.createdAt.slice(0, 10) }}</span>
                       <span v-if="record.sourceType" class="text-slate-700">
-                        {{ record.sourceType === 'task' ? 'タスク' : record.sourceType === 'chat_message' ? 'チャット' : '外部データ' }}
+                        {{ record.sourceType === 'chat_message' ? 'チャット' : '外部データ' }}
                       </span>
                     </div>
                   </div>

@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, primaryKey, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
 
 // 個人利用のためユーザー管理なし。パスワード認証のみ。
@@ -20,39 +20,6 @@ export const messages = sqliteTable('messages', {
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 })
 
-// ===== 非推奨（旧タスク管理機能）=====
-// UI・API・ナビからは完全削除済み。テーブル本体は既存データ保持のため残置している。
-// 新規参照しないこと。将来データ不要と判断したら DROP マイグレーションで物理削除する。
-export const tasks = sqliteTable('tasks', {
-  id: text('id').primaryKey(),
-  title: text('title').notNull(),
-  description: text('description'),
-  status: text('status', { enum: ['todo', 'doing', 'done'] }).notNull().default('todo'),
-  priority: integer('priority').notNull().default(3),
-  dueDate: text('due_date'),
-  completedAt: text('completed_at'),
-  estimatedHours: real('estimated_hours'),
-  actualHours: real('actual_hours'),
-  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
-  updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
-})
-
-export const tags = sqliteTable('tags', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  description: text('description'),
-  color: text('color'),
-  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
-})
-
-export const taskTags = sqliteTable('task_tags', {
-  taskId: text('task_id').notNull().references(() => tasks.id, { onDelete: 'cascade' }),
-  tagId: text('tag_id').notNull().references(() => tags.id, { onDelete: 'cascade' }),
-}, (t) => ({
-  pk: primaryKey({ columns: [t.taskId, t.tagId] }),
-}))
-// ===== 非推奨ここまで =====
-
 // ChatGPT・Claude・日記などのインポートファイル。ファイル名・原文・処理ステータスを一元管理する。
 export const importedFiles = sqliteTable('imported_files', {
   id: text('id').primaryKey(),
@@ -64,14 +31,13 @@ export const importedFiles = sqliteTable('imported_files', {
 })
 
 // インポートファイル / チャットメッセージをAIで分析して抽出した中間記憶。
-// （source_type の 'task' は旧タスク管理機能の名残。既存データ互換のため enum に残す）
 // 「何を考えていたか（what）」「感情の方向（polarity）」「感情タグ（emotion_tags）」「テーマタグ（theme_tags）」
 // 「理由（why）」「要約（summary）」「重要度（intensity）」を保持し、長期記憶生成の入力データとなる。
 // emotion_tags / theme_tags は JSON 配列文字列で保存（例: '["不安","自己不信"]'）。
 export const intermediateRecords = sqliteTable('intermediate_records', {
   id: text('id').primaryKey(),
   sourceId: text('source_id'),
-  sourceType: text('source_type', { enum: ['imported_file', 'task', 'chat_message'] }),
+  sourceType: text('source_type', { enum: ['imported_file', 'chat_message'] }),
   date: text('date'),
   polarity: text('polarity', { enum: ['positive', 'negative', 'neutral'] }),
   emotionTags: text('emotion_tags'),
@@ -86,7 +52,7 @@ export const intermediateRecords = sqliteTable('intermediate_records', {
 export const extractionLogs = sqliteTable('extraction_logs', {
   id: text('id').primaryKey(),
   sourceId: text('source_id').notNull(),
-  sourceType: text('source_type', { enum: ['imported_file', 'task', 'chat_message'] }).notNull(),
+  sourceType: text('source_type', { enum: ['imported_file', 'chat_message'] }).notNull(),
   intermediateRecordId: text('intermediate_record_id').references(() => intermediateRecords.id),
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 }, (t) => ({

@@ -21,19 +21,14 @@ conversations       id, title, created_at, updated_at
 messages            id, conversation_id(FK→conversations), role(user|assistant),
                     content, created_at
 
-tasks               id, title, description, status(todo/doing/done), priority(1-5),
-                    due_date, completed_at, estimated_hours, actual_hours,
-                    created_at, updated_at
-tags                id, name, description, color, created_at
-task_tags           task_id(FK→tasks), tag_id(FK→tags)  ※複合PK・両FK cascadeあり
-
 imported_files      id, file_name, content, status(pending|processing|done|error),
                     created_at, updated_at
                     ※ 8000文字を超えるファイルはチャンク分割して複数レコード保存
 
-intermediate_records  id, source_id, source_type(imported_file|task|chat_message),
-                      date, polarity(positive|negative|neutral), tag, what,
-                      intensity(1-5), created_at
+intermediate_records  id, source_id, source_type(imported_file|chat_message),
+                      date, polarity(positive|negative|neutral),
+                      emotion_tags(JSON配列), theme_tags(JSON配列),
+                      what, why, intensity(1-5), created_at
 
 extraction_logs     id, source_id, source_type, intermediate_record_id(FK nullable),
                     created_at
@@ -42,13 +37,17 @@ extraction_logs     id, source_id, source_type, intermediate_record_id(FK nullab
 memory_snapshots    id, period_type(weekly|monthly|yearly|manual|past|living_profile),
                     period_start, period_end, achievements, struggles, interests,
                     ai_summary, recommended_focus, integrated_advice,
-                    finance_summary, health_trend, created_at
+                    finance_summary, health_trend,
+                    headline, top_themes(JSON), emotion_summary(JSON),
+                    polarity_summary(JSON), created_at
                     ※ living_profile は常に1レコードのみ（更新時に上書き）
+                    ※ headline/top_themes/emotion_summary/polarity_summary は
+                      タイムライン可視化用（migration 0012、spec 005）
 ```
 
-overdue（期限切れ）は DBカラムを持たず、サーバー側で `due_date < today && status != 'done'` で算出。
+※ tasks / tags / task_tags は 2026-06 のスコープ絞り込みで削除済み（migration 0013、spec 003）。
 
-マイグレーションファイル: `server/migrations/`  
+マイグレーションファイル: `server/migrations/`（手書き運用。drizzle-kit のスナップショットは未同期のため `db:generate` は使わず手書きする）  
 wrangler.toml に `migrations_dir = "server/migrations"` が必要（デフォルトの `migrations/` と異なる）
 
 ## ADR-001: Nuxt 4 の app/ srcDir
