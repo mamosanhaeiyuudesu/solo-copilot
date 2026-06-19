@@ -1,4 +1,13 @@
 <script setup lang="ts">
+interface TagSummary {
+  tag: string
+  posCount: number
+  negCount: number
+  positive: string
+  negative: string
+  shortLabel: string
+}
+
 interface TimelineSnapshot {
   id: string
   periodType: 'weekly' | 'monthly' | 'yearly' | 'manual' | 'past'
@@ -27,6 +36,12 @@ const zoomTabs: { key: Zoom; label: string; hint: string }[] = [
   { key: 'yearly', label: '年', hint: '全期間' },
 ]
 
+function parseTagSummaries(json: string | null): TagSummary[] {
+  if (!json) return []
+  try { return JSON.parse(json) as TagSummary[] }
+  catch { return [] }
+}
+
 // ズームごとの表示範囲でフィルタし、左（過去）→右（現在）に並べる
 const cells = computed(() => {
   const now = new Date()
@@ -41,7 +56,6 @@ const cells = computed(() => {
   }
 
   const inRange = props.snapshots.filter((s) => {
-    // 年ビューには past（過去の記録）も含める
     if (props.zoom === 'yearly') return s.periodType === 'yearly' || s.periodType === 'past'
     if (s.periodType !== props.zoom) return false
     if (!from || !s.periodStart) return true
@@ -49,7 +63,6 @@ const cells = computed(() => {
   })
 
   return [...inRange].sort((a, b) => {
-    // past は常に最左（最古）
     if (a.periodType === 'past' && b.periodType !== 'past') return -1
     if (a.periodType !== 'past' && b.periodType === 'past') return 1
     const da = a.periodStart ?? a.createdAt.slice(0, 10)
@@ -58,7 +71,47 @@ const cells = computed(() => {
   })
 })
 
-const cellWidth = computed(() => (props.zoom === 'weekly' ? 'w-32' : props.zoom === 'monthly' ? 'w-40' : 'w-48'))
+function snapLabel(s: TimelineSnapshot): string {
+  if (s.periodType === 'past') return '過去'
+  const start = s.periodStart
+  if (!start) return '—'
+  const [y, m, d] = start.split('-')
+  if (s.periodType === 'weekly') return `${Number(m)}/${Number(d)}`
+  if (s.periodType === 'monthly') return `${y}年${Number(m)}月`
+  if (s.periodType === 'yearly') return `${y}年`
+  return start
+}
+
+// 表示中のスナップショット全体から全タグを収集（出現回数の多い順）
+const allTags = computed(() => {
+  const count = new Map<string, number>()
+  for (const snap of cells.value) {
+    for (const s of parseTagSummaries(snap.tagSummaries)) {
+      count.set(s.tag, (count.get(s.tag) ?? 0) + s.posCount + s.negCount)
+    }
+  }
+  return [...count.entries()].sort((a, b) => b[1] - a[1]).map(([tag]) => tag)
+})
+
+// snapId → tag → TagSummary のルックアップ
+const snapTagMap = computed(() => {
+  const map = new Map<string, Map<string, TagSummary>>()
+  for (const snap of cells.value) {
+    const tagMap = new Map<string, TagSummary>()
+    for (const s of parseTagSummaries(snap.tagSummaries)) {
+      tagMap.set(s.tag, s)
+    }
+    map.set(snap.id, tagMap)
+  }
+  return map
+})
+
+function cellClass(s: TagSummary | undefined): string {
+  if (!s || (!s.posCount && !s.negCount)) return 'text-slate-600'
+  if (s.posCount > s.negCount) return 'text-emerald-300 bg-emerald-900/30'
+  if (s.negCount > s.posCount) return 'text-red-300 bg-red-900/30'
+  return 'text-slate-400 bg-slate-800/50'
+}
 
 const scroller = ref<HTMLElement | null>(null)
 
@@ -102,19 +155,56 @@ watch(cells, async () => {
         <span>現在 →</span>
       </div>
 
-      <div
-        ref="scroller"
-        class="flex gap-2 overflow-x-auto pb-3"
-        style="scrollbar-width: thin;"
-      >
-        <MemoryTimelineCell
-          v-for="cell in cells"
-          :key="cell.id"
-          :class="cellWidth"
-          :snapshot="cell"
-          :selected="selectedId === cell.id"
-          @select="emit('select', cell)"
-        />
+      <div ref="scroller" class="overflow-x-auto" style="scrollbar-width: thin;">
+        <table class="border-collapse text-xs w-max">
+          <thead>
+            <tr>
+              <!-- タグラベル列のヘッダ -->
+              <th class="sticky left-0 z-20 bg-slate-950 min-w-[88px] px-2 py-1.5 border-b border-r border-slate-800" />
+              <!-- 期間列ヘッダ -->
+              <th
+                v-for="snap in cells"
+                :key="snap.id"
+                :class="[
+                  'min-w-[76px] px-2 py-1.5 text-center font-medium border-b border-slate-800 cursor-pointer transition-colors whitespace-nowrap',
+                  selectedId === snap.id
+                    ? 'text-violet-300 bg-violet-900/20'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40',
+                ]"
+                @click="emit('select', snap)"
+              >
+                {{ snapLabel(snap) }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="tag in allTags" :key="tag" class="group">
+              <!-- タグ名（固定左列） -->
+              <td
+                class="sticky left-0 z-10 bg-slate-950 group-hover:bg-slate-900/80 px-2 py-1.5 text-slate-400 border-r border-slate-800 whitespace-nowrap font-medium transition-colors"
+              >
+                #{{ tag }}
+              </td>
+              <!-- 各スナップショットのセル -->
+              <td
+                v-for="snap in cells"
+                :key="snap.id"
+                :class="[
+                  'px-1.5 py-1.5 text-center border-b border-slate-800/40 cursor-pointer transition-colors',
+                  selectedId === snap.id ? 'bg-violet-900/10' : 'hover:bg-slate-800/30',
+                ]"
+                @click="emit('select', snap)"
+              >
+                <span
+                  v-if="snapTagMap.get(snap.id)?.get(tag)?.shortLabel"
+                  :class="['inline-block px-1.5 py-0.5 rounded text-[10px] leading-tight whitespace-nowrap', cellClass(snapTagMap.get(snap.id)?.get(tag))]"
+                >
+                  {{ snapTagMap.get(snap.id)?.get(tag)?.shortLabel }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>

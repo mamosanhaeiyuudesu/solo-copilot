@@ -32,6 +32,7 @@ interface TagSummary {
   negCount: number
   positive: string // そのテーマで良かったこと（文）
   negative: string // そのテーマで苦労したこと（文）
+  shortLabel: string // タイムラインテーブルのセル表示用（10文字以内）
 }
 
 function parseTagSummaries(json: string | null): TagSummary[] {
@@ -61,7 +62,7 @@ async function generateTagTexts(
   claude: Anthropic,
   periodLabel: string,
   blocks: { tag: string; posLines: string[]; negLines: string[] }[],
-): Promise<Record<string, { positive: string; negative: string }>> {
+): Promise<Record<string, { positive: string; negative: string; shortLabel: string }>> {
   if (blocks.length === 0) return {}
 
   const dataText = blocks.map((b) => {
@@ -71,14 +72,17 @@ async function generateTagTexts(
   }).join('\n\n')
 
   const prompt = `${periodLabel}の個人データをテーマ別に整理しました。
-各テーマについて「良かったこと（positive）」と「苦労したこと（negative）」をそれぞれ1〜2文で要約してください。
-観察が無い側は空文字 "" にしてください。JSONのみ返答（マークダウン不可）。
+各テーマについて以下を返してください。
+- positive: 良かったことの要約（1〜2文。観察がない場合は空文字 ""）
+- negative: 苦労したことの要約（1〜2文。観察がない場合は空文字 ""）
+- shortLabel: タイムライン表示用の超短縮ラベル（10文字以内・日本語で内容を端的に表す）
+JSONのみ返答（マークダウン不可）。
 
 ${dataText}
 
 出力形式（テーマ名をキーにする）:
 {
-  "テーマ名": { "positive": "良かったことの要約", "negative": "苦労したことの要約" }
+  "テーマ名": { "positive": "良かったことの要約", "negative": "苦労したことの要約", "shortLabel": "10文字以内" }
 }`
 
   const res = await claude.messages.create({
@@ -90,7 +94,7 @@ ${dataText}
   const match = text.match(/\{[\s\S]*\}/)
   if (!match) return {}
   try {
-    return JSON.parse(match[0]) as Record<string, { positive: string; negative: string }>
+    return JSON.parse(match[0]) as Record<string, { positive: string; negative: string; shortLabel: string }>
   }
   catch {
     return {}
@@ -141,6 +145,7 @@ export async function generateWeeklySnapshot(
       negCount: b.neg.length,
       positive: texts[tag]?.positive ?? '',
       negative: texts[tag]?.negative ?? '',
+      shortLabel: texts[tag]?.shortLabel ?? '',
     }))
     .sort((a, b) => (b.posCount + b.negCount) - (a.posCount + a.negCount))
 
@@ -220,6 +225,7 @@ async function generateAggregatedSnapshot(
       negCount: m.negCount,
       positive: texts[tag]?.positive ?? '',
       negative: texts[tag]?.negative ?? '',
+      shortLabel: texts[tag]?.shortLabel ?? '',
     }))
     .sort((a, b) => (b.posCount + b.negCount) - (a.posCount + a.negCount))
 

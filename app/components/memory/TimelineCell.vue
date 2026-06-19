@@ -5,6 +5,7 @@ interface TagSummary {
   negCount: number
   positive: string
   negative: string
+  shortLabel: string
 }
 
 interface CellSnapshot {

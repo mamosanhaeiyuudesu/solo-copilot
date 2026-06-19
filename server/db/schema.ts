@@ -66,8 +66,9 @@ export const memorySnapshots = sqliteTable('memory_snapshots', {
   periodStart: text('period_start'),
   periodEnd: text('period_end'),
   // テーマタグ別サマリ（タイムライン可視化・詳細表示の本体）。
-  // JSON: [{ tag, posCount, negCount, positive, negative }]
+  // JSON: [{ tag, posCount, negCount, positive, negative, shortLabel }]
   //   positive/negative = そのテーマで良かったこと/苦労したことの要約（文）
+  //   shortLabel = タイムラインテーブルのセル表示用（10文字以内）
   tagSummaries: text('tag_summaries'),
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 })
