@@ -4,10 +4,10 @@
   "type": "module",
   "packageManager": "yarn@4.9.1",
   "scripts": {
-    "dev:ui": "nuxt dev --port 3010",
+    "dev": "nuxt dev --port 3010",
     "build": "nuxt build",
-    "dev": "npm run build && wrangler dev --remote",
     "deploy": "npm run build && wrangler deploy",
+    "deploy:full": "npm run build && wrangler deploy && wrangler d1 migrations apply solo-copilot-db --remote",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "wrangler d1 migrations apply solo-copilot-db --remote",
     "wrangler": "wrangler"
@@ -22,7 +22,9 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250525.0",
     "@nuxt/ui": "^3.0.0",
+    "@types/better-sqlite3": "^7.6.13",
     "@vite-pwa/nuxt": "^1.1.1",
+    "better-sqlite3": "^12.11.1",
     "drizzle-kit": "^0.30.0",
     "typescript": "^5.7.0",
     "wrangler": "^4.0.0"

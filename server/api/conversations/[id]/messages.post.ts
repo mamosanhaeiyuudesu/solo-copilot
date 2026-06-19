@@ -79,7 +79,6 @@ export default defineEventHandler(async (event) => {
               sourceType: 'chat_message',
               date: item.date ?? null,
               polarity: item.polarity,
-              emotionTags: JSON.stringify(item.emotion_tags),
               themeTags: JSON.stringify(item.theme_tags),
               what: item.what,
               why: item.why ?? null,

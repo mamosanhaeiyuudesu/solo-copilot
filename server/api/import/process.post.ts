@@ -47,7 +47,6 @@ export default defineEventHandler(async (event) => {
           sourceType: 'imported_file',
           date: item.date ?? null,
           polarity: item.polarity,
-          emotionTags: JSON.stringify(item.emotion_tags),
           themeTags: JSON.stringify(item.theme_tags),
           what: item.what,
           why: item.why ?? null,

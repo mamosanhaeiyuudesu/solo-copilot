@@ -4,10 +4,7 @@ interface TimelineSnapshot {
   periodType: 'weekly' | 'monthly' | 'yearly' | 'manual' | 'past'
   periodStart: string | null
   periodEnd: string | null
-  headline: string | null
-  aiSummary: string | null
-  topThemes: string | null
-  polaritySummary: string | null
+  tagSummaries: string | null
   createdAt: string
 }
 

@@ -1,4 +1,4 @@
-import { desc, eq, gte } from 'drizzle-orm'
+import { eq, gte } from 'drizzle-orm'
 import { getClaudeClient } from '../../utils/claude'
 import { getDb } from '../../utils/db'
 import { intermediateRecords, memorySnapshots } from '../../db/schema'
@@ -7,7 +7,6 @@ import {
   generateWeeklySnapshot,
   generateMonthlySnapshot,
   generateYearlySnapshot,
-  updateLivingProfile,
 } from '../../utils/snapshot'
 
 function addDays(date: Date, days: number): Date {
@@ -26,7 +25,7 @@ export default defineEventHandler(async (event) => {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const result = { weekly: 0, monthly: 0, yearly: 0, livingProfile: false }
+  const result = { weekly: 0, monthly: 0, yearly: 0 }
 
   // 1. intensity >= 2 のレコード日付を収集し、データが存在する週だけを対象にする
   //    （全週スキャンするとタイムアウトするため）
@@ -66,12 +65,11 @@ export default defineEventHandler(async (event) => {
     monthsWithWeeklies.add(`${d.getFullYear()}-${d.getMonth() + 1}`)
   }
 
-  let newHigherOrder = false
   for (const key of monthsWithWeeklies) {
     const [y, m] = key.split('-').map(Number) as [number, number]
     if (new Date(y, m, 0) >= today) continue // 月が未完了
     const created = await generateMonthlySnapshot(db, claude, y, m)
-    if (created) { result.monthly++; newHigherOrder = true }
+    if (created) result.monthly++
   }
 
   // 4. 月次スナップショットが存在する完了済み年の年次スナップショットを生成
@@ -88,26 +86,7 @@ export default defineEventHandler(async (event) => {
   for (const year of yearsWithMonthlies) {
     if (new Date(year, 11, 31) >= today) continue // 年が未完了
     const created = await generateYearlySnapshot(db, claude, year)
-    if (created) { result.yearly++; newHigherOrder = true }
-  }
-
-  // 5. living_profile を更新（新規スナップショットがある場合、またはプロファイル未生成の場合）
-  const latestWeekly = await db.select({ periodEnd: memorySnapshots.periodEnd })
-    .from(memorySnapshots)
-    .where(eq(memorySnapshots.periodType, 'weekly'))
-    .orderBy(desc(memorySnapshots.periodEnd))
-    .get()
-
-  if (latestWeekly?.periodEnd) {
-    const existingProfile = await db.select({ id: memorySnapshots.id })
-      .from(memorySnapshots)
-      .where(eq(memorySnapshots.periodType, 'living_profile'))
-      .get()
-
-    if (!existingProfile || result.weekly > 0 || result.monthly > 0 || result.yearly > 0) {
-      await updateLivingProfile(db, claude, newHigherOrder ? 'full' : 'rolling', latestWeekly.periodEnd)
-      result.livingProfile = true
-    }
+    if (created) result.yearly++
   }
 
   return result

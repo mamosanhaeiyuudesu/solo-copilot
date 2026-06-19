@@ -31,16 +31,15 @@ export const importedFiles = sqliteTable('imported_files', {
 })
 
 // インポートファイル / チャットメッセージをAIで分析して抽出した中間記憶。
-// 「何を考えていたか（what）」「感情の方向（polarity）」「感情タグ（emotion_tags）」「テーマタグ（theme_tags）」
-// 「理由（why）」「要約（summary）」「重要度（intensity）」を保持し、長期記憶生成の入力データとなる。
-// emotion_tags / theme_tags は JSON 配列文字列で保存（例: '["不安","自己不信"]'）。
+// 「何を考えていたか（what）」「感情の方向（polarity: positive|negative）」「テーマタグ（theme_tags）」
+// 「理由（why）」「重要度（intensity）」を保持し、長期記憶生成の入力データとなる。
+// theme_tags は固定リストの JSON 配列文字列で保存（例: '["AI","会社"]'）。
 export const intermediateRecords = sqliteTable('intermediate_records', {
   id: text('id').primaryKey(),
   sourceId: text('source_id'),
   sourceType: text('source_type', { enum: ['imported_file', 'chat_message'] }),
   date: text('date'),
-  polarity: text('polarity', { enum: ['positive', 'negative', 'neutral'] }),
-  emotionTags: text('emotion_tags'),
+  polarity: text('polarity', { enum: ['positive', 'negative'] }),
   themeTags: text('theme_tags'),
   what: text('what'),
   why: text('why'),
@@ -60,24 +59,15 @@ export const extractionLogs = sqliteTable('extraction_logs', {
 }))
 
 // AIが定期生成するユーザーの長期記憶（週次・月次・年次・手動・過去振り返り）。
-// intermediateRecords を集約して「できていること・苦しんでいること・関心・推奨フォーカス」などを保持する。
+// intermediateRecords をテーマタグ別に集約し、各テーマのポジ/ネガ要約を tag_summaries に保持する。
 export const memorySnapshots = sqliteTable('memory_snapshots', {
   id: text('id').primaryKey(),
-  periodType: text('period_type', { enum: ['weekly', 'monthly', 'yearly', 'manual', 'past', 'living_profile'] }).notNull(),
+  periodType: text('period_type', { enum: ['weekly', 'monthly', 'yearly', 'manual', 'past'] }).notNull(),
   periodStart: text('period_start'),
   periodEnd: text('period_end'),
-  achievements: text('achievements'),
-  struggles: text('struggles'),
-  interests: text('interests'),
-  aiSummary: text('ai_summary'),
-  recommendedFocus: text('recommended_focus'),
-  integratedAdvice: text('integrated_advice'),
-  financeSummary: text('finance_summary'),
-  healthTrend: text('health_trend'),
-  // タイムライン可視化用。すべて JSON 文字列または短文。
-  headline: text('headline'), // 主要イベント見出し（10〜15文字。複数の場合は JSON 配列文字列）
-  topThemes: text('top_themes'), // JSON: [{theme, count}]（themeTags 集計）
-  emotionSummary: text('emotion_summary'), // JSON: [{emotion, count}]（emotionTags 集計）
-  polaritySummary: text('polarity_summary'), // JSON: {positive, negative, neutral}
+  // テーマタグ別サマリ（タイムライン可視化・詳細表示の本体）。
+  // JSON: [{ tag, posCount, negCount, positive, negative }]
+  //   positive/negative = そのテーマで良かったこと/苦労したことの要約（文）
+  tagSummaries: text('tag_summaries'),
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 })

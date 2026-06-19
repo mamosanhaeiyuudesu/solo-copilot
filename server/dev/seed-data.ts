@@ -1,0 +1,301 @@
+// ローカル開発用サンプルデータ
+// テーマタグは memory.vue の THEME_TAGS に合わせた12種類を使用
+
+export const seedConversations = [
+  {
+    id: 'conv-001',
+    title: 'AI副業について相談',
+    createdAt: '2026-05-10 09:00:00',
+    updatedAt: '2026-05-10 09:30:00',
+  },
+  {
+    id: 'conv-002',
+    title: 'キャリアの方向性',
+    createdAt: '2026-06-01 20:00:00',
+    updatedAt: '2026-06-01 20:45:00',
+  },
+]
+
+export const seedMessages = [
+  {
+    id: 'msg-001',
+    conversationId: 'conv-001',
+    role: 'user' as const,
+    content: 'AIを使った副業で月10万円を目指したいんだけど、どんなことができそう？',
+    createdAt: '2026-05-10 09:00:00',
+  },
+  {
+    id: 'msg-002',
+    conversationId: 'conv-001',
+    role: 'assistant' as const,
+    content: 'AIを活用した副業はいくつか現実的な選択肢があります。特にあなたが興味を持っているマーケティングやAIの知識を組み合わせると、コンテンツ制作支援、プロンプトエンジニアリングのコンサルティング、AI活用研修の講師などが考えられます。まずはどの方向が一番やりやすいか考えてみましょう。',
+    createdAt: '2026-05-10 09:05:00',
+  },
+  {
+    id: 'msg-003',
+    conversationId: 'conv-001',
+    role: 'user' as const,
+    content: 'プロンプトエンジニアリングのコンサルは面白そう。でも実績がないとクライアント獲得が難しそう…',
+    createdAt: '2026-05-10 09:10:00',
+  },
+  {
+    id: 'msg-004',
+    conversationId: 'conv-001',
+    role: 'assistant' as const,
+    content: 'まず社内で実績を作るのが近道です。今の会社でAI活用の提案を1件やってみて、それをポートフォリオにする。社内実績でも「業務を〇〇%効率化」という具体的な数字があればクライアントに見せられます。',
+    createdAt: '2026-05-10 09:15:00',
+  },
+  {
+    id: 'msg-005',
+    conversationId: 'conv-002',
+    role: 'user' as const,
+    content: '最近、転職するか今の会社で頑張るか迷ってる。副業も軌道に乗ってきたし。',
+    createdAt: '2026-06-01 20:00:00',
+  },
+  {
+    id: 'msg-006',
+    conversationId: 'conv-002',
+    role: 'assistant' as const,
+    content: '転職か現職継続かは、副業の状況と合わせて考えると整理しやすいです。副業月収が現職の25〜30%に達したら「選択肢が増えた」状態です。今はどれくらいですか？',
+    createdAt: '2026-06-01 20:05:00',
+  },
+]
+
+export const seedImportedFiles = [
+  {
+    id: 'file-001',
+    fileName: 'chatgpt_2026_04.json',
+    content: '{"conversations": [{"title": "仕事のストレス解消法", "messages": [...]}, {"title": "副業アイデア", "messages": [...]}]}',
+    status: 'done' as const,
+    createdAt: '2026-05-01 10:00:00',
+    updatedAt: '2026-05-01 10:05:00',
+  },
+  {
+    id: 'file-002',
+    fileName: '日記_2026年5月.txt',
+    content: '5/3 GW中もAIツール開発を続けた。ようやく形になってきた。\n5/10 副業の相談をAIにしてみた。方向性が少し見えてきた気がする。\n5/20 剣道の昇段審査に向けて稽古強化中。仕事との両立が課題。',
+    status: 'done' as const,
+    createdAt: '2026-05-25 18:00:00',
+    updatedAt: '2026-05-25 18:10:00',
+  },
+]
+
+export const seedIntermediateRecords = [
+  // 4月
+  {
+    id: 'ir-001',
+    sourceId: 'file-001',
+    sourceType: 'imported_file' as const,
+    date: '2026-04-05',
+    polarity: 'negative' as const,
+    themeTags: JSON.stringify(['会社', '心理']),
+    what: '新しいプロジェクトのアサインで上司と意見が合わず、モヤモヤした気持ちが続いた',
+    why: '自分のキャリア方向と会社の期待がずれていると感じたため',
+    intensity: 4,
+    createdAt: '2026-05-01 10:05:00',
+  },
+  {
+    id: 'ir-002',
+    sourceId: 'file-001',
+    sourceType: 'imported_file' as const,
+    date: '2026-04-12',
+    polarity: 'positive' as const,
+    themeTags: JSON.stringify(['AI', '発明']),
+    what: 'Claude APIを使ったプロトタイプが思った以上にうまく動いて達成感を感じた',
+    why: '自分でゼロから作ったものが機能することへの喜び',
+    intensity: 5,
+    createdAt: '2026-05-01 10:05:00',
+  },
+  {
+    id: 'ir-003',
+    sourceId: 'file-001',
+    sourceType: 'imported_file' as const,
+    date: '2026-04-18',
+    polarity: 'positive' as const,
+    themeTags: JSON.stringify(['マーケティング', 'AI']),
+    what: 'AIを使ったコンテンツ戦略の提案が社内で好評だった',
+    why: '自分の強みであるマーケティングとAIを組み合わせた提案が受け入れられた',
+    intensity: 4,
+    createdAt: '2026-05-01 10:05:00',
+  },
+  {
+    id: 'ir-004',
+    sourceId: 'file-001',
+    sourceType: 'imported_file' as const,
+    date: '2026-04-25',
+    polarity: 'negative' as const,
+    themeTags: JSON.stringify(['転職', '心理']),
+    what: '転職サイトを見て比較してしまい、今の環境への不満が高まった',
+    why: '他社の待遇や環境が気になり始めたから',
+    intensity: 3,
+    createdAt: '2026-05-01 10:05:00',
+  },
+  // 5月
+  {
+    id: 'ir-005',
+    sourceId: 'file-002',
+    sourceType: 'imported_file' as const,
+    date: '2026-05-03',
+    polarity: 'positive' as const,
+    themeTags: JSON.stringify(['AI', '発明']),
+    what: 'GW中にAIツールのプロトタイプ開発が進み、形になってきた',
+    why: '集中して開発できる時間が取れ、長期的なビジョンが見えてきた',
+    intensity: 5,
+    createdAt: '2026-05-25 18:10:00',
+  },
+  {
+    id: 'ir-006',
+    sourceId: 'file-002',
+    sourceType: 'imported_file' as const,
+    date: '2026-05-10',
+    polarity: 'positive' as const,
+    themeTags: JSON.stringify(['転職', 'AI']),
+    what: '副業の方向性についてAIに相談し、プロンプトエンジニアリング系の可能性が見えてきた',
+    why: '自分のスキルを活かせる具体的な副業像が描けるようになったから',
+    intensity: 4,
+    createdAt: '2026-05-25 18:10:00',
+  },
+  {
+    id: 'ir-007',
+    sourceId: 'file-002',
+    sourceType: 'imported_file' as const,
+    date: '2026-05-20',
+    polarity: 'negative' as const,
+    themeTags: JSON.stringify(['剣道', '会社']),
+    what: '剣道の稽古と仕事の両立が難しく、昇段審査の準備が思うように進んでいない',
+    why: '仕事が忙しく体力的・時間的な余裕がない',
+    intensity: 3,
+    createdAt: '2026-05-25 18:10:00',
+  },
+  {
+    id: 'ir-008',
+    sourceId: 'msg-001',
+    sourceType: 'chat_message' as const,
+    date: '2026-05-10',
+    polarity: 'positive' as const,
+    themeTags: JSON.stringify(['AI', 'マーケティング']),
+    what: 'AI副業で月10万を目指すという具体的な目標を立てた',
+    why: '副業への本気度が増し、具体的なステップを考え始めた',
+    intensity: 4,
+    createdAt: '2026-05-10 09:30:00',
+  },
+  {
+    id: 'ir-009',
+    sourceId: 'msg-005',
+    sourceType: 'chat_message' as const,
+    date: '2026-06-01',
+    polarity: 'positive' as const,
+    themeTags: JSON.stringify(['転職', '心理']),
+    what: '転職か現職継続かを整理するきっかけになった。副業が軌道に乗ってきて選択肢が増えた',
+    why: '副業の成長が自信につながり、主体的にキャリアを考えられるようになった',
+    intensity: 4,
+    createdAt: '2026-06-01 20:45:00',
+  },
+  // 6月
+  {
+    id: 'ir-010',
+    sourceId: 'msg-006',
+    sourceType: 'chat_message' as const,
+    date: '2026-06-05',
+    polarity: 'positive' as const,
+    themeTags: JSON.stringify(['節約', '夫婦']),
+    what: '家計の見直しをパートナーと話し合い、副業収入の使い道を具体的に決めた',
+    why: '副業が現実的になってきたので二人でライフプランを考えたくなった',
+    intensity: 3,
+    createdAt: '2026-06-05 21:00:00',
+  },
+  {
+    id: 'ir-011',
+    sourceId: 'msg-006',
+    sourceType: 'chat_message' as const,
+    date: '2026-06-10',
+    polarity: 'negative' as const,
+    themeTags: JSON.stringify(['会社', '転職']),
+    what: '職場の人間関係でモヤモヤが続いた。評価基準が不透明でやる気が下がった',
+    why: '努力が正当に評価されないと感じる状況が続いているから',
+    intensity: 4,
+    createdAt: '2026-06-10 22:00:00',
+  },
+  {
+    id: 'ir-012',
+    sourceId: 'msg-006',
+    sourceType: 'chat_message' as const,
+    date: '2026-06-15',
+    polarity: 'positive' as const,
+    themeTags: JSON.stringify(['AI', '発明']),
+    what: 'このアプリ（MY AGENT）の記憶可視化機能が形になってきて、自分の変化が見えるようになった',
+    why: 'ツール自体が価値を生み出していると実感できた',
+    intensity: 5,
+    createdAt: '2026-06-15 20:00:00',
+  },
+]
+
+// tagSummaries のサンプル（JSON文字列として保存）
+const makeTagSummaries = (items: Array<{
+  tag: string
+  posCount: number
+  negCount: number
+  positive: string
+  negative: string
+}>) => JSON.stringify(items)
+
+export const seedMemorySnapshots = [
+  {
+    id: 'snap-001',
+    periodType: 'monthly' as const,
+    periodStart: '2026-04-01',
+    periodEnd: '2026-04-30',
+    tagSummaries: makeTagSummaries([
+      { tag: 'AI', posCount: 2, negCount: 0, positive: 'APIプロトタイプが動作してテクノロジーへの自信が深まった。マーケティング提案も好評だった', negative: '' },
+      { tag: '会社', posCount: 0, negCount: 1, positive: '', negative: '新プロジェクトで上司との価値観の差を感じ、消耗した' },
+      { tag: 'マーケティング', posCount: 1, negCount: 0, positive: 'AI×マーケティングの提案が社内評価を得た。自分の強みを再認識できた', negative: '' },
+      { tag: '転職', posCount: 0, negCount: 1, positive: '', negative: '転職サイトを眺めて今の環境への不満が可視化されてしまった' },
+      { tag: '心理', posCount: 0, negCount: 1, positive: '', negative: '上司との関係や転職への迷いでメンタルが不安定だった' },
+    ]),
+    createdAt: '2026-05-02 09:00:00',
+  },
+  {
+    id: 'snap-002',
+    periodType: 'monthly' as const,
+    periodStart: '2026-05-01',
+    periodEnd: '2026-05-31',
+    tagSummaries: makeTagSummaries([
+      { tag: 'AI', posCount: 2, negCount: 0, positive: 'GW中のプロトタイプ開発と副業方向性の具体化でAIへの手応えが増した', negative: '' },
+      { tag: '発明', posCount: 1, negCount: 0, positive: '自分でツールを作る喜びを再体感できた。MY AGENTの開発が前進した', negative: '' },
+      { tag: '転職', posCount: 1, negCount: 0, positive: '副業アイデアが形になってきて、転職という選択肢を焦らず持てるようになった', negative: '' },
+      { tag: '剣道', posCount: 0, negCount: 1, positive: '', negative: '仕事の忙しさで稽古不足。昇段審査への準備が遅れている' },
+      { tag: '会社', posCount: 0, negCount: 1, positive: '', negative: '剣道との両立難しく、体力・時間の余裕がない状況が続いた' },
+      { tag: 'マーケティング', posCount: 1, negCount: 0, positive: '副業でのプロンプトエンジニアリングとマーケティングの組み合わせに可能性を感じた', negative: '' },
+    ]),
+    createdAt: '2026-06-02 09:00:00',
+  },
+  {
+    id: 'snap-003',
+    periodType: 'weekly' as const,
+    periodStart: '2026-06-09',
+    periodEnd: '2026-06-15',
+    tagSummaries: makeTagSummaries([
+      { tag: 'AI', posCount: 1, negCount: 0, positive: 'MY AGENTの記憶可視化機能が完成に近づき、ツールの価値を実感できた', negative: '' },
+      { tag: '発明', posCount: 1, negCount: 0, positive: '自分のアイデアがプロダクトとして動いている充実感が大きい', negative: '' },
+      { tag: '会社', posCount: 0, negCount: 1, positive: '', negative: '評価が不透明で疲弊。転職を本格的に検討し始めている' },
+      { tag: '転職', posCount: 0, negCount: 1, positive: '', negative: '職場への不満が増大。ただし焦りはなく冷静に選択肢を考えられている' },
+    ]),
+    createdAt: '2026-06-16 08:00:00',
+  },
+  {
+    id: 'snap-004',
+    periodType: 'manual' as const,
+    periodStart: '2026-04-01',
+    periodEnd: '2026-06-15',
+    tagSummaries: makeTagSummaries([
+      { tag: 'AI', posCount: 5, negCount: 0, positive: 'この3ヶ月でAIへの理解と実践力が大きく伸びた。副業・プロダクト開発の両面で成果が出始めている', negative: '' },
+      { tag: '転職', posCount: 1, negCount: 2, positive: '副業が軌道に乗ってきて焦らず転職を考えられるようになった', negative: '現職への不満は蓄積しており、意思決定が必要な段階に来ている' },
+      { tag: '発明', posCount: 2, negCount: 0, positive: 'プロダクトを0→1で作る経験を通じて、開発の自信と楽しさを取り戻した', negative: '' },
+      { tag: '会社', posCount: 0, negCount: 2, positive: '', negative: '評価・方向性への不満が継続。これが転職・独立を考える主なドライバーになっている' },
+      { tag: '剣道', posCount: 0, negCount: 1, positive: '', negative: '仕事・副業が優先になり稽古時間が確保できていない。優先度の再考が必要' },
+      { tag: 'マーケティング', posCount: 2, negCount: 0, positive: 'AIとマーケティングの掛け算という自分の強みを社内外で発揮できている', negative: '' },
+      { tag: '夫婦', posCount: 1, negCount: 0, positive: 'パートナーと将来のライフプランを話せるようになってきた。副業が会話を生んでいる', negative: '' },
+    ]),
+    createdAt: '2026-06-16 10:00:00',
+  },
+]
