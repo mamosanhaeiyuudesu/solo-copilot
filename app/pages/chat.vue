@@ -46,6 +46,7 @@ const editingPrompt = ref('')
 const extractedCount = ref<number | null>(null)
 const messagesContainerRef = ref<HTMLElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const deletingIndex = ref<number | null>(null)
 
 function scrollToBottom(smooth = false) {
   const el = messagesContainerRef.value
@@ -77,6 +78,23 @@ function formatTime(iso: string) {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function formatDateLabel(iso: string) {
+  return new Date(iso).toLocaleDateString('ja-JP', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+  })
+}
+
+function isNewDay(index: number): boolean {
+  const msg = messages.value[index]
+  if (!msg?.timestamp) return false
+  const prev = messages.value.slice(0, index).reverse().find(m => m.timestamp)
+  if (!prev) return index === 0
+  return new Date(msg.timestamp).toDateString() !== new Date(prev.timestamp!).toDateString()
 }
 
 function openSettings() {
@@ -169,15 +187,27 @@ function resizeTextarea() {
   textareaRef.value.style.height = textareaRef.value.scrollHeight + 'px'
 }
 
-function deleteMessage(index: number) {
+async function deleteMessage(index: number) {
   const msg = messages.value[index]
-  if (!msg || msg.role !== 'user') return
+  if (!msg || msg.role !== 'user' || deletingIndex.value !== null) return
   const next = messages.value[index + 1]
-  if (next?.role === 'assistant') {
-    messages.value.splice(index, 2)
+
+  const ids = [msg.id]
+  if (next?.role === 'assistant') ids.push(next.id)
+
+  deletingIndex.value = index
+  try {
+    await $fetch(`/api/conversations/${conversationId.value}/messages`, {
+      method: 'DELETE',
+      body: { ids },
+    })
+    messages.value.splice(index, next?.role === 'assistant' ? 2 : 1)
   }
-  else {
-    messages.value.splice(index, 1)
+  catch {
+    // 削除失敗は無視（UIはそのまま）
+  }
+  finally {
+    deletingIndex.value = null
   }
 }
 </script>
@@ -231,6 +261,11 @@ function deleteMessage(index: number) {
         </div>
 
         <template v-for="(msg, i) in messages" :key="i">
+          <div v-if="isNewDay(i) && msg.timestamp" class="flex items-center gap-3 py-1">
+            <div class="flex-1 h-px bg-slate-800" />
+            <span class="text-xs text-slate-500 font-medium shrink-0 px-1">{{ formatDateLabel(msg.timestamp) }}</span>
+            <div class="flex-1 h-px bg-slate-800" />
+          </div>
           <div :class="['flex flex-col group', msg.role === 'user' ? 'items-end' : 'items-start']">
             <div
               :class="[
@@ -246,10 +281,10 @@ function deleteMessage(index: number) {
             <div v-if="msg.role === 'user'" class="flex items-center gap-2 mt-1">
               <button
                 class="opacity-0 group-hover:opacity-100 text-xs text-slate-600 hover:text-red-400 transition-all disabled:cursor-not-allowed"
-                :disabled="streaming"
+                :disabled="streaming || deletingIndex !== null"
                 @click="deleteMessage(i)"
               >
-                削除
+                {{ deletingIndex === i ? '…' : '削除' }}
               </button>
               <span v-if="msg.timestamp" class="text-xs text-slate-600">{{ formatTime(msg.timestamp) }}</span>
             </div>

@@ -1,10 +1,10 @@
-import { and, asc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import { getDb } from '../../../utils/db'
 import { getClaudeClient } from '../../../utils/claude'
 import { conversations, messages, intermediateRecords, extractionLogs } from '../../../db/schema'
 import { extractIntermediateItems } from '../../../utils/extraction'
 
-const EXTRACTION_THRESHOLD = 10
+const MIN_INTENSITY = 2
 
 export default defineEventHandler(async (event) => {
   const conversationId = getRouterParam(event, 'id')
@@ -30,52 +30,45 @@ export default defineEventHandler(async (event) => {
     .set({ updatedAt: now })
     .where(eq(conversations.id, conversationId))
 
-  // アシスタントメッセージ保存後に未処理数をチェックして自動抽出
+  // アシスタントメッセージ保存後に直前のペアで抽出
   let extracted = 0
   if (body.role === 'assistant') {
-    const allMsgs = await db.select({ id: messages.id })
+    const pair = await db.select()
       .from(messages)
       .where(eq(messages.conversationId, conversationId))
+      .orderBy(desc(messages.createdAt))
+      .limit(2)
       .all()
+      .then(r => r.reverse())
 
-    const allIds = allMsgs.map(m => m.id)
-    if (allIds.length > 0) {
-      const processedLogs = await db.select({ sourceId: extractionLogs.sourceId })
+    if (pair.length === 2 && pair[0]?.role === 'user' && pair[1]?.role === 'assistant') {
+      const pairIds = pair.map(m => m.id)
+
+      const alreadyLogged = await db.select()
         .from(extractionLogs)
         .where(and(
           eq(extractionLogs.sourceType, 'chat_message'),
-          inArray(extractionLogs.sourceId, allIds),
+          inArray(extractionLogs.sourceId, pairIds),
         ))
         .all()
 
-      const processedIds = new Set(processedLogs.map(l => l.sourceId))
-      const unprocessedIds = allIds.filter(id => !processedIds.has(id))
-
-      if (unprocessedIds.length >= EXTRACTION_THRESHOLD) {
-        const unprocessedMsgs = await db.select()
-          .from(messages)
-          .where(and(
-            eq(messages.conversationId, conversationId),
-            inArray(messages.id, unprocessedIds),
-          ))
-          .orderBy(asc(messages.createdAt))
-          .all()
-
-        const content = unprocessedMsgs
+      if (alreadyLogged.length === 0) {
+        const content = pair
           .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
           .join('\n\n')
 
         try {
           const claude = getClaudeClient(event)
           const items = await extractIntermediateItems(claude, content)
+          const significant = items.filter(item => item.intensity >= MIN_INTENSITY)
 
           let firstRecordId: string | null = null
-          for (const item of items) {
+          for (const item of significant) {
             const id = crypto.randomUUID()
             if (!firstRecordId) firstRecordId = id
             await db.insert(intermediateRecords).values({
               id,
-              sourceId: unprocessedMsgs[0]!.id,
+              sourceId: pair[1]!.id,
               sourceType: 'chat_message',
               date: item.date ?? null,
               polarity: item.polarity,
@@ -86,7 +79,7 @@ export default defineEventHandler(async (event) => {
             })
           }
 
-          for (const msg of unprocessedMsgs) {
+          for (const msg of pair) {
             await db.insert(extractionLogs).values({
               id: crypto.randomUUID(),
               sourceId: msg.id,
@@ -95,7 +88,7 @@ export default defineEventHandler(async (event) => {
             })
           }
 
-          extracted = items.length
+          extracted = significant.length
         }
         catch {
           // 抽出失敗はメッセージ保存の成否に影響させない

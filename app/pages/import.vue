@@ -22,6 +22,7 @@ interface ProcessingFile {
 
 interface DisplayItem {
   id: string
+  ids: string[]
   fileName: string
   size?: number
   status: DisplayStatus
@@ -29,9 +30,27 @@ interface DisplayItem {
   errorMessage?: string
 }
 
+const CIRCLED = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩',
+                 '⑪','⑫','⑬','⑭','⑮','⑯','⑰','⑱','⑲','⑳']
+
+function stripChunkSuffix(name: string): string {
+  for (const c of CIRCLED) {
+    if (name.endsWith(c)) return name.slice(0, -c.length)
+  }
+  return name
+}
+
+function aggregateStatus(files: ImportedFile[]): BatchStatus {
+  if (files.every(f => f.status === 'done')) return 'done'
+  if (files.some(f => f.status === 'error')) return 'error'
+  if (files.some(f => f.status === 'processing')) return 'processing'
+  return 'pending'
+}
+
 const processingFiles = ref(new Map<string, ProcessingFile>())
 const batches = ref<ImportedFile[]>([])
 const loadingBatches = ref(false)
+const deletingId = ref<string | null>(null)
 
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
@@ -66,18 +85,31 @@ const statusColor: Record<DisplayStatus, string> = {
 const displayItems = computed<DisplayItem[]>(() => {
   const local: DisplayItem[] = Array.from(processingFiles.value.entries()).map(([id, f]) => ({
     id,
+    ids: [],
     fileName: f.fileName,
     status: f.status,
     createdAt: f.startedAt,
     errorMessage: f.errorMessage,
   }))
-  const db: DisplayItem[] = batches.value.map(f => ({
-    id: f.id,
-    fileName: f.fileName,
-    size: new TextEncoder().encode(f.content).length,
-    status: f.status,
-    createdAt: f.createdAt,
+
+  // チャンク分割されたファイルを元ファイル名でグループ化して1行にまとめる
+  const grouped = new Map<string, ImportedFile[]>()
+  for (const f of batches.value) {
+    const base = stripChunkSuffix(f.fileName)
+    const arr = grouped.get(base) ?? []
+    arr.push(f)
+    grouped.set(base, arr)
+  }
+
+  const db: DisplayItem[] = Array.from(grouped.entries()).map(([baseName, files]) => ({
+    id: files[0]!.id,
+    ids: files.map(f => f.id),
+    fileName: baseName,
+    size: files.reduce((sum, f) => sum + new TextEncoder().encode(f.content).length, 0),
+    status: aggregateStatus(files),
+    createdAt: files[0]!.createdAt,
   }))
+
   return [...local, ...db]
 })
 
@@ -131,6 +163,21 @@ function addPastedText() {
   pasteDate.value = ''
   showPasteModal.value = false
   processFile(file)
+}
+
+async function deleteFile(item: DisplayItem) {
+  if (!item.ids.length || deletingId.value) return
+  deletingId.value = item.id
+  try {
+    await $fetch('/api/import/files', { method: 'DELETE', body: { ids: item.ids } })
+    batches.value = batches.value.filter(f => !item.ids.includes(f.id))
+  }
+  catch {
+    // 削除失敗は無視
+  }
+  finally {
+    deletingId.value = null
+  }
 }
 
 async function fetchBatches() {
@@ -204,13 +251,14 @@ onMounted(async () => {
                 <th class="px-4 py-3 text-xs text-slate-500 font-medium">ファイル名</th>
                 <th class="px-4 py-3 text-xs text-slate-500 font-medium">ステータス</th>
                 <th class="px-4 py-3 text-xs text-slate-500 font-medium">日時</th>
+                <th class="px-2 py-3" />
               </tr>
             </thead>
             <tbody>
               <tr
                 v-for="item in displayItems"
                 :key="item.id"
-                class="border-b border-slate-800/50 last:border-0 hover:bg-slate-800/20"
+                class="border-b border-slate-800/50 last:border-0 hover:bg-slate-800/20 group"
               >
                 <td class="px-4 py-3 text-slate-300 font-mono text-xs max-w-[260px] truncate" :title="item.errorMessage">
                   {{ item.fileName }}
@@ -224,6 +272,16 @@ onMounted(async () => {
                   </div>
                 </td>
                 <td class="px-4 py-3 text-slate-600 text-xs">{{ item.createdAt.slice(0, 16).replace('T', ' ') }}</td>
+                <td class="px-2 py-3 text-right">
+                  <button
+                    v-if="item.ids.length > 0"
+                    :disabled="deletingId !== null"
+                    class="opacity-0 group-hover:opacity-100 text-xs text-slate-600 hover:text-red-400 transition-all disabled:cursor-not-allowed"
+                    @click="deleteFile(item)"
+                  >
+                    {{ deletingId === item.id ? '…' : '削除' }}
+                  </button>
+                </td>
               </tr>
             </tbody>
           </table>
