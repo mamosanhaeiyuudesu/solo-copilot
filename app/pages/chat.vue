@@ -216,7 +216,9 @@ async function deleteMessage(index: number) {
   <div class="flex flex-col h-full">
     <AuthModal v-if="!isAuthed" />
 
-    <div v-else class="flex flex-col h-full">
+    <div v-else class="flex gap-4 h-full">
+      <!-- チャットエリア -->
+      <div class="flex flex-col flex-1 min-w-0 h-full">
       <!-- ヘッダー -->
       <div class="flex items-center justify-between mb-4 shrink-0">
         <h1 class="text-2xl font-black text-slate-50 tracking-tight">チャット</h1>
@@ -326,6 +328,12 @@ async function deleteMessage(index: number) {
             {{ streaming ? '…' : '送信' }}
           </button>
         </div>
+      </div>
+      </div>
+
+      <!-- メモパネル（右サイドバー） -->
+      <div class="w-72 shrink-0 h-full overflow-hidden border-l border-slate-800/40 pl-4">
+        <MemoPanel />
       </div>
     </div>
 

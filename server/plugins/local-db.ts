@@ -69,6 +69,13 @@ export default defineNitroPlugin(async () => {
       tag_summaries TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS memos (
+      id TEXT PRIMARY KEY NOT NULL,
+      memo_date TEXT,
+      content TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `)
 
   const db = drizzle(sqlite, { schema })

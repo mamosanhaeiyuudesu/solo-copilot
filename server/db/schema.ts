@@ -30,14 +30,23 @@ export const importedFiles = sqliteTable('imported_files', {
   updatedAt: text('updated_at').notNull().default(sql`(datetime('now'))`),
 })
 
-// インポートファイル / チャットメッセージをAIで分析して抽出した中間記憶。
+// ユーザーが手入力したメモ（日時＋本文）。中間記憶の生成元となる。
+export const memos = sqliteTable('memos', {
+  id: text('id').primaryKey(),
+  memoDate: text('memo_date'),
+  content: text('content').notNull(),
+  status: text('status', { enum: ['pending', 'done', 'error'] }).notNull().default('pending'),
+  createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
+})
+
+// インポートファイル / チャットメッセージ / メモをAIで分析して抽出した中間記憶。
 // 「何を考えていたか（what）」「感情の方向（polarity: positive|negative）」「テーマタグ（theme_tags）」
 // 「理由（why）」「重要度（intensity）」を保持し、長期記憶生成の入力データとなる。
 // theme_tags は固定リストの JSON 配列文字列で保存（例: '["AI","会社"]'）。
 export const intermediateRecords = sqliteTable('intermediate_records', {
   id: text('id').primaryKey(),
   sourceId: text('source_id'),
-  sourceType: text('source_type', { enum: ['imported_file', 'chat_message'] }),
+  sourceType: text('source_type', { enum: ['imported_file', 'chat_message', 'memo'] }),
   date: text('date'),
   polarity: text('polarity', { enum: ['positive', 'negative'] }),
   themeTags: text('theme_tags'),
@@ -51,7 +60,7 @@ export const intermediateRecords = sqliteTable('intermediate_records', {
 export const extractionLogs = sqliteTable('extraction_logs', {
   id: text('id').primaryKey(),
   sourceId: text('source_id').notNull(),
-  sourceType: text('source_type', { enum: ['imported_file', 'chat_message'] }).notNull(),
+  sourceType: text('source_type', { enum: ['imported_file', 'chat_message', 'memo'] }).notNull(),
   intermediateRecordId: text('intermediate_record_id').references(() => intermediateRecords.id),
   createdAt: text('created_at').notNull().default(sql`(datetime('now'))`),
 }, (t) => ({
