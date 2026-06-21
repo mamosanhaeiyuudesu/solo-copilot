@@ -4,6 +4,7 @@ const route = useRoute()
 
 const navItems = [
   { label: 'チャット', to: '/chat', icon: '◎' },
+  { label: 'メモ', to: '/memo', icon: '✏' },
   { label: 'データ取込', to: '/import', icon: '⊕' },
   { label: '記憶ビューア', to: '/memory', icon: '◑' },
 ]
