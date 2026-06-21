@@ -204,8 +204,8 @@ onMounted(async () => {
   <div>
     <AuthModal v-if="!isAuthed" />
 
-    <div v-else class="py-4 max-w-3xl">
-      <div class="mb-8">
+    <div v-else class="py-4">
+      <div class="mb-6">
         <h1 class="text-2xl sm:text-3xl font-black text-slate-50 tracking-tight">外部データ取り込み</h1>
         <p class="mt-2 text-slate-500 text-sm sm:text-base">過去のログをインポートして、AIの素材として蓄積する</p>
       </div>

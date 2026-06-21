@@ -216,16 +216,18 @@ async function deleteMessage(index: number) {
   <div class="flex flex-col h-full">
     <AuthModal v-if="!isAuthed" />
 
-    <div v-else class="flex flex-col h-full">
+    <div v-else class="flex flex-col h-full pt-6">
       <!-- ヘッダー -->
-      <div class="flex items-center justify-between mb-4 shrink-0">
-        <h1 class="text-2xl font-black text-slate-50 tracking-tight">チャット</h1>
-
+      <div class="mb-6 shrink-0 flex items-start justify-between gap-4">
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-black text-slate-50 tracking-tight">チャット</h1>
+          <p class="mt-2 text-slate-500 text-sm sm:text-base">自分のデータを知ったAIと対話し、思考を整理する</p>
+        </div>
         <UButton
           color="neutral"
           variant="ghost"
           size="sm"
-          class="text-slate-500 hover:text-slate-300"
+          class="text-slate-500 hover:text-slate-300 shrink-0"
           @click="openSettings"
         >
           ⚙
