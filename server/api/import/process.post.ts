@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   const db = getDb(event)
   const claude = getClaudeClient(event)
 
-  const pending = await db.select().from(importedFiles).where(eq(importedFiles.status, 'pending')).all()
+  const pending = await db.select().from(importedFiles).where(eq(importedFiles.status, 'pending'))
 
   const result = { success: 0, error: 0, skipped: 0, total: pending.length }
 

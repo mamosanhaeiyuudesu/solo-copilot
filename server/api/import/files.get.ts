@@ -8,7 +8,6 @@ export default defineEventHandler(async (event) => {
     .select()
     .from(importedFiles)
     .orderBy(desc(importedFiles.createdAt))
-    .all()
 
   return { files }
 })

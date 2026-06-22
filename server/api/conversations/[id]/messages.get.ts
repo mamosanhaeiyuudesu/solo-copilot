@@ -12,8 +12,8 @@ export default defineEventHandler(async (event) => {
   const db = getDb(event)
 
   const rows = limit
-    ? await db.select().from(messages).where(eq(messages.conversationId, id)).orderBy(desc(messages.createdAt)).limit(limit).all().then(r => r.reverse())
-    : await db.select().from(messages).where(eq(messages.conversationId, id)).orderBy(asc(messages.createdAt)).all()
+    ? (await db.select().from(messages).where(eq(messages.conversationId, id)).orderBy(desc(messages.createdAt)).limit(limit)).reverse()
+    : await db.select().from(messages).where(eq(messages.conversationId, id)).orderBy(asc(messages.createdAt))
 
   return rows.map(r => ({
     id: r.id,

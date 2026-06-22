@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const result = { weekly: 0, monthly: 0, yearly: 0 }
+  const result = { weekly: 0, monthly: 0, yearly: 0, errors: [] as string[] }
 
   // 1. intensity >= 2 のレコード日付を収集し、データが存在する週だけを対象にする
   //    （全週スキャンするとタイムアウトするため）
@@ -33,7 +33,6 @@ export default defineEventHandler(async (event) => {
     .select({ date: intermediateRecords.date })
     .from(intermediateRecords)
     .where(gte(intermediateRecords.intensity, 2))
-    .all()
 
   const weekSet = new Set<string>()
   for (const { date } of recordDates) {
@@ -48,15 +47,21 @@ export default defineEventHandler(async (event) => {
   // 2. 時系列順に週次スナップショットを生成（generateWeeklySnapshot が冪等性を保証）
   for (const mondayStr of [...weekSet].sort()) {
     const sunday = toDateStr(addDays(new Date(mondayStr), 6))
-    const created = await generateWeeklySnapshot(db, claude, mondayStr, sunday)
-    if (created) result.weekly++
+    try {
+      const created = await generateWeeklySnapshot(db, claude, mondayStr, sunday)
+      if (created) result.weekly++
+    }
+    catch (e) {
+      const msg = `週次 ${mondayStr}: ${e instanceof Error ? e.message : String(e)}`
+      console.error('[batch] ' + msg)
+      result.errors.push(msg)
+    }
   }
 
   // 3. 週次スナップショットが存在する完了済み月の月次スナップショットを生成
   const allWeeklies = await db.select({ periodStart: memorySnapshots.periodStart })
     .from(memorySnapshots)
     .where(eq(memorySnapshots.periodType, 'weekly'))
-    .all()
 
   const monthsWithWeeklies = new Set<string>()
   for (const w of allWeeklies) {
@@ -68,15 +73,21 @@ export default defineEventHandler(async (event) => {
   for (const key of monthsWithWeeklies) {
     const [y, m] = key.split('-').map(Number) as [number, number]
     if (new Date(y, m, 0) >= today) continue // 月が未完了
-    const created = await generateMonthlySnapshot(db, claude, y, m)
-    if (created) result.monthly++
+    try {
+      const created = await generateMonthlySnapshot(db, claude, y, m)
+      if (created) result.monthly++
+    }
+    catch (e) {
+      const msg = `月次 ${key}: ${e instanceof Error ? e.message : String(e)}`
+      console.error('[batch] ' + msg)
+      result.errors.push(msg)
+    }
   }
 
   // 4. 月次スナップショットが存在する完了済み年の年次スナップショットを生成
   const allMonthlies = await db.select({ periodStart: memorySnapshots.periodStart })
     .from(memorySnapshots)
     .where(eq(memorySnapshots.periodType, 'monthly'))
-    .all()
 
   const yearsWithMonthlies = new Set<number>()
   for (const m of allMonthlies) {
@@ -85,8 +96,15 @@ export default defineEventHandler(async (event) => {
 
   for (const year of yearsWithMonthlies) {
     if (new Date(year, 11, 31) >= today) continue // 年が未完了
-    const created = await generateYearlySnapshot(db, claude, year)
-    if (created) result.yearly++
+    try {
+      const created = await generateYearlySnapshot(db, claude, year)
+      if (created) result.yearly++
+    }
+    catch (e) {
+      const msg = `年次 ${year}: ${e instanceof Error ? e.message : String(e)}`
+      console.error('[batch] ' + msg)
+      result.errors.push(msg)
+    }
   }
 
   return result

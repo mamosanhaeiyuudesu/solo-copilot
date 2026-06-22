@@ -33,13 +33,11 @@ export default defineEventHandler(async (event) => {
   // アシスタントメッセージ保存後に直前のペアで抽出
   let extracted = 0
   if (body.role === 'assistant') {
-    const pair = await db.select()
+    const pair = (await db.select()
       .from(messages)
       .where(eq(messages.conversationId, conversationId))
       .orderBy(desc(messages.createdAt))
-      .limit(2)
-      .all()
-      .then(r => r.reverse())
+      .limit(2)).reverse()
 
     if (pair.length === 2 && pair[0]?.role === 'user' && pair[1]?.role === 'assistant') {
       const pairIds = pair.map(m => m.id)
@@ -50,7 +48,6 @@ export default defineEventHandler(async (event) => {
           eq(extractionLogs.sourceType, 'chat_message'),
           inArray(extractionLogs.sourceId, pairIds),
         ))
-        .all()
 
       if (alreadyLogged.length === 0) {
         const content = pair

@@ -22,7 +22,6 @@ export default defineEventHandler(async (event) => {
       eq(intermediateRecords.sourceType, 'chat_message'),
       inArray(intermediateRecords.sourceId, body.ids),
     ))
-    .all()
   bySource.forEach(r => intermediateIds.add(r.id))
 
   const logs = await db.select({ intermediateRecordId: extractionLogs.intermediateRecordId })
@@ -31,7 +30,6 @@ export default defineEventHandler(async (event) => {
       eq(extractionLogs.sourceType, 'chat_message'),
       inArray(extractionLogs.sourceId, body.ids),
     ))
-    .all()
   logs.forEach(l => { if (l.intermediateRecordId) intermediateIds.add(l.intermediateRecordId) })
 
   if (intermediateIds.size > 0) {

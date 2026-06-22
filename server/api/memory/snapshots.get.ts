@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
     dbQuery = dbQuery.where(eq(memorySnapshots.periodType, query.periodType as PeriodType)) as typeof dbQuery
   }
 
-  const rows = await dbQuery.orderBy(desc(memorySnapshots.createdAt)).all()
+  const rows = await dbQuery.orderBy(desc(memorySnapshots.createdAt))
 
   const snapshots = rows.sort((a, b) => {
     if (a.periodType === 'past' && b.periodType !== 'past') return 1

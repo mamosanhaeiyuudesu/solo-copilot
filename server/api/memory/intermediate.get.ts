@@ -32,7 +32,6 @@ export default defineEventHandler(async (event) => {
     .from(intermediateRecords)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(intermediateRecords.date), asc(intermediateRecords.createdAt))
-    .all()
 
   return { records }
 })

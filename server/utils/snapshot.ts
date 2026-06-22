@@ -124,7 +124,6 @@ export async function generateWeeklySnapshot(
       gte(intermediateRecords.intensity, 2),
     ))
     .orderBy(asc(intermediateRecords.date))
-    .all()
   if (records.length === 0) return false
 
   const grouped = groupByTag(records)
@@ -204,7 +203,6 @@ async function generateAggregatedSnapshot(
       gte(memorySnapshots.periodStart, periodStart),
       lte(memorySnapshots.periodStart, periodEnd),
     ))
-    .all()
   if (children.length === 0) return false
 
   const merged = mergeChildTagSummaries(children)

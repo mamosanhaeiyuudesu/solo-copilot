@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
   const result = { files: 0, fileRecords: 0, chatRecords: 0 }
 
   // 2. インポートファイルを再抽出
-  const files = await db.select().from(importedFiles).all()
+  const files = await db.select().from(importedFiles)
   for (const file of files) {
     try {
       const chunks = splitIntoChunks(file.content)
@@ -62,7 +62,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // 3. チャットメッセージを再抽出（会話順に結合 → チャンク分割）
-  const allMessages = await db.select().from(messages).orderBy(asc(messages.createdAt)).all()
+  const allMessages = await db.select().from(messages).orderBy(asc(messages.createdAt))
   if (allMessages.length > 0) {
     const combined = allMessages
       .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
