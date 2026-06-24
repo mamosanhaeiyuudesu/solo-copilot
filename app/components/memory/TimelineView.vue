@@ -31,8 +31,8 @@ const emit = defineEmits<{
 }>()
 
 const zoomTabs: { key: Zoom; label: string; hint: string }[] = [
-  { key: 'weekly', label: '週', hint: '直近3か月' },
-  { key: 'monthly', label: '月', hint: '直近1年' },
+  { key: 'weekly', label: '週', hint: '全期間' },
+  { key: 'monthly', label: '月', hint: '全期間' },
   { key: 'yearly', label: '年', hint: '全期間' },
 ]
 
@@ -42,24 +42,11 @@ function parseTagSummaries(json: string | null): TagSummary[] {
   catch { return [] }
 }
 
-// ズームごとの表示範囲でフィルタし、左（過去）→右（現在）に並べる
+// ズームに合ったタイプのスナップショットを全期間表示（左＝過去、右＝現在）
 const cells = computed(() => {
-  const now = new Date()
-  let from: Date | null = null
-  if (props.zoom === 'weekly') {
-    from = new Date(now)
-    from.setMonth(from.getMonth() - 3)
-  }
-  else if (props.zoom === 'monthly') {
-    from = new Date(now)
-    from.setFullYear(from.getFullYear() - 1)
-  }
-
   const inRange = props.snapshots.filter((s) => {
     if (props.zoom === 'yearly') return s.periodType === 'yearly' || s.periodType === 'past'
-    if (s.periodType !== props.zoom) return false
-    if (!from || !s.periodStart) return true
-    return new Date(s.periodStart) >= from
+    return s.periodType === props.zoom
   })
 
   return [...inRange].sort((a, b) => {

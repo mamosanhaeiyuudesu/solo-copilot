@@ -131,7 +131,7 @@ async function deleteSelected() {
 
 // ===== バッチ / 再抽出 =====
 const batching = ref(false)
-const batchResult = ref<{ weekly: number; monthly: number; yearly: number } | null>(null)
+const batchResult = ref<{ weekly: number; monthly: number; yearly: number; errors?: string[] } | null>(null)
 const reextracting = ref(false)
 
 async function runBatch() {
@@ -140,8 +140,11 @@ async function runBatch() {
   try {
     batchResult.value = await $fetch('/api/memory/batch', { method: 'POST' })
     await fetchSnapshots()
+    if (batchResult.value?.errors?.length) {
+      alert(`処理完了しましたが${batchResult.value.errors.length}件のエラーがありました:\n${batchResult.value.errors.join('\n')}`)
+    }
   }
-  catch { alert('バッチ処理に失敗しました') }
+  catch (e) { alert(`バッチ処理に失敗しました。\nエラー: ${String(e)}`) }
   finally { batching.value = false }
 }
 
@@ -149,24 +152,39 @@ async function runReextract() {
   if (!confirm('全ての中間記憶・長期記憶を削除し、インポートファイル・チャット・メモから作り直します。\n\nこの操作は元に戻せません。本当に実行しますか？')) return
   reextracting.value = true
   batchResult.value = null
+  let totalRecords = 0
   try {
     const res = await $fetch<{ files: number; memos: number; fileRecords: number; chatRecords: number; memoRecords: number }>(
       '/api/memory/reextract', { method: 'POST' },
     )
-    const totalRecords = res.fileRecords + res.chatRecords + res.memoRecords
-    batchResult.value = await $fetch('/api/memory/batch', { method: 'POST' })
+    totalRecords = res.fileRecords + res.chatRecords + res.memoRecords
     await fetchIntermediate()
+  }
+  catch (e) {
+    alert(`中間記憶の再抽出に失敗しました。\n${String(e)}`)
+    reextracting.value = false
+    return
+  }
+
+  try {
+    batchResult.value = await $fetch('/api/memory/batch', { method: 'POST' })
     await fetchSnapshots()
     selectedSnapshot.value = null
-    alert(`完了：中間記憶${totalRecords}件・長期記憶（週次${batchResult.value?.weekly ?? 0}件・月次${batchResult.value?.monthly ?? 0}件・年次${batchResult.value?.yearly ?? 0}件）を作り直しました。`)
+    const snap = batchResult.value
+    const errMsg = snap?.errors?.length ? `\n\n警告：${snap.errors.length}件のエラー\n${snap.errors.join('\n')}` : ''
+    alert(`完了：中間記憶${totalRecords}件・長期記憶（週次${snap?.weekly ?? 0}件・月次${snap?.monthly ?? 0}件・年次${snap?.yearly ?? 0}件）を作り直しました。${errMsg}`)
   }
-  catch { alert('作り直しに失敗しました') }
+  catch (e) {
+    await fetchSnapshots()
+    alert(`中間記憶${totalRecords}件を作り直しました。\n長期記憶の生成に失敗しました。「長期記憶を更新」ボタンで再試行してください。\nエラー: ${String(e)}`)
+  }
   finally { reextracting.value = false }
 }
 
 // ===== スナップショット =====
 const snapshots = ref<MemorySnapshot[]>([])
 const loadingSnapshots = ref(false)
+const snapshotFetchError = ref<string | null>(null)
 const selectedSnapshot = ref<MemorySnapshot | null>(null)
 const loadingDetail = ref(false)
 
@@ -210,11 +228,12 @@ async function fetchIntermediate() {
 
 async function fetchSnapshots() {
   loadingSnapshots.value = true
+  snapshotFetchError.value = null
   try {
     const res = await $fetch<{ snapshots: MemorySnapshot[] }>('/api/memory/snapshots')
     snapshots.value = res.snapshots
   }
-  catch { /* D1なし環境では無視 */ }
+  catch (e) { snapshotFetchError.value = String(e) }
   finally { loadingSnapshots.value = false }
 }
 
@@ -273,6 +292,9 @@ onMounted(async () => {
 
       <div v-if="batchResult" class="mb-6 rounded-xl border border-slate-800 bg-slate-900/30 p-4 text-xs text-slate-500">
         週次{{ batchResult.weekly }}件・月次{{ batchResult.monthly }}件・年次{{ batchResult.yearly }}件を処理しました
+        <template v-if="batchResult.errors?.length">
+          <div class="mt-2 text-red-400">エラー {{ batchResult.errors.length }}件：{{ batchResult.errors.join(' / ') }}</div>
+        </template>
       </div>
 
       <!-- タブ -->
@@ -295,7 +317,14 @@ onMounted(async () => {
       <div v-if="activeTab === 'timeline'">
         <div v-if="loadingSnapshots" class="text-slate-600 text-sm py-10 text-center">読み込み中…</div>
 
+        <div v-else-if="snapshotFetchError" class="rounded-xl border border-red-800/50 bg-red-900/10 p-4 text-sm text-red-400 mb-4">
+          スナップショット取得エラー：{{ snapshotFetchError }}
+        </div>
+
         <template v-else>
+          <div v-if="snapshots.length > 0" class="text-xs text-slate-600 mb-3">
+            取得済み：週次{{ snapshots.filter(s => s.periodType === 'weekly').length }}件・月次{{ snapshots.filter(s => s.periodType === 'monthly').length }}件・年次{{ snapshots.filter(s => s.periodType === 'yearly').length }}件
+          </div>
           <MemoryTimelineView
             v-model:zoom="timelineZoom"
             :snapshots="snapshots"
