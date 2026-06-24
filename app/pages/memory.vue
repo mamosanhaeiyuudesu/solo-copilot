@@ -35,10 +35,9 @@ interface MemorySnapshot {
   createdAt: string
 }
 
-// テーマタグ（固定12）
+// テーマタグ（固定8）
 const THEME_TAGS = [
-  '発明', '心理', '子育て', '剣道', '夫婦', '会社',
-  'AI', 'マーケティング', '転職', '親との関係', '節約', '地方創生',
+  '本業', '転職', '副業', 'AI', '心理', '家族', '剣道', '信仰',
 ]
 
 function parseTags(json: string | null): string[] {
@@ -96,7 +95,15 @@ const filteredRecords = computed(() => {
 
 // 中間記憶 選択・削除
 const selectedIds = ref<Set<string>>(new Set())
+const expandedWhys = ref<Set<string>>(new Set())
 const deleting = ref(false)
+
+function toggleWhy(id: string) {
+  const next = new Set(expandedWhys.value)
+  if (next.has(id)) next.delete(id)
+  else next.add(id)
+  expandedWhys.value = next
+}
 const allSelected = computed(() =>
   filteredRecords.value.length > 0 && filteredRecords.value.every(r => selectedIds.value.has(r.id)),
 )
@@ -139,19 +146,21 @@ async function runBatch() {
 }
 
 async function runReextract() {
-  if (!confirm('既存の中間記憶・長期記憶を全て破棄し、インポートデータとチャットから再抽出します。よろしいですか？')) return
+  if (!confirm('全ての中間記憶・長期記憶を削除し、インポートファイル・チャット・メモから作り直します。\n\nこの操作は元に戻せません。本当に実行しますか？')) return
   reextracting.value = true
   batchResult.value = null
   try {
-    const res = await $fetch<{ files: number; fileRecords: number; chatRecords: number }>(
+    const res = await $fetch<{ files: number; memos: number; fileRecords: number; chatRecords: number; memoRecords: number }>(
       '/api/memory/reextract', { method: 'POST' },
     )
-    alert(`再抽出完了：ファイル${res.files}件・中間記憶${res.fileRecords + res.chatRecords}件。続けて「記憶を更新」を押してください。`)
+    const totalRecords = res.fileRecords + res.chatRecords + res.memoRecords
+    batchResult.value = await $fetch('/api/memory/batch', { method: 'POST' })
     await fetchIntermediate()
     await fetchSnapshots()
     selectedSnapshot.value = null
+    alert(`完了：中間記憶${totalRecords}件・長期記憶（週次${batchResult.value?.weekly ?? 0}件・月次${batchResult.value?.monthly ?? 0}件・年次${batchResult.value?.yearly ?? 0}件）を作り直しました。`)
   }
-  catch { alert('再抽出に失敗しました') }
+  catch { alert('作り直しに失敗しました') }
   finally { reextracting.value = false }
 }
 
@@ -165,7 +174,21 @@ const polarityColor: Record<Polarity, string> = {
   positive: 'text-emerald-400 bg-emerald-900/30',
   negative: 'text-red-400 bg-red-900/30',
 }
-const polarityLabel: Record<Polarity, string> = { positive: 'ポジティブ', negative: 'ネガティブ' }
+const polarityLabel: Record<Polarity, string> = { positive: 'ポジ', negative: 'ネガ' }
+
+function shortDate(dateStr: string | null, fallback: string): string {
+  const s = dateStr ?? fallback.slice(0, 10)
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return s
+  return `${m[1]!.slice(2)}/${Number(m[2])}/${Number(m[3])}`
+}
+
+function shortSource(sourceType: string | null): string {
+  if (sourceType === 'chat_message') return 'チャ'
+  if (sourceType === 'imported_file') return '外デ'
+  if (sourceType === 'memo') return 'メモ'
+  return ''
+}
 const periodLabel: Record<PeriodType, string> = {
   weekly: '週次', monthly: '月次', yearly: '年次', manual: '手動', past: '過去',
 }
@@ -235,7 +258,7 @@ onMounted(async () => {
             class="px-3 py-2 rounded-lg text-sm font-medium bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-slate-300 border border-slate-700 transition-colors"
             @click="runReextract"
           >
-            {{ reextracting ? '再抽出中…' : '全データ再抽出' }}
+            {{ reextracting ? '作り直し中…' : '全記憶を作り直す' }}
           </button>
           <button
             type="button"
@@ -243,7 +266,7 @@ onMounted(async () => {
             class="px-4 py-2 rounded-lg text-sm font-medium bg-violet-700 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors"
             @click="runBatch"
           >
-            {{ batching ? '処理中…' : '記憶を更新' }}
+            {{ batching ? '処理中…' : '長期記憶を更新' }}
           </button>
         </div>
       </div>
@@ -255,7 +278,7 @@ onMounted(async () => {
       <!-- タブ -->
       <div class="flex gap-1 mb-6 border-b border-slate-800">
         <button
-          v-for="tab in [{ key: 'timeline', label: 'タイムライン' }, { key: 'intermediate', label: '中間記憶' }] as const"
+          v-for="tab in [{ key: 'timeline', label: '長期記憶' }, { key: 'intermediate', label: '中間記憶' }] as const"
           :key="tab.key"
           type="button"
           :class="[
@@ -411,30 +434,31 @@ onMounted(async () => {
               ]"
               @click="toggleOne(record.id)"
             >
-              <div class="flex items-start gap-3">
-                <input type="checkbox" :checked="selectedIds.has(record.id)" class="accent-violet-500 w-4 h-4 mt-0.5 shrink-0 cursor-pointer" @click.stop @change="toggleOne(record.id)">
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-start justify-between gap-3 mb-1.5">
-                    <div class="flex items-center gap-1.5 flex-wrap">
-                      <span v-if="record.polarity" :class="['px-2 py-0.5 rounded-full text-xs font-medium', polarityColor[record.polarity]]">
-                        {{ polarityLabel[record.polarity] }}
-                      </span>
-                      <span v-for="tag in parseTags(record.themeTags)" :key="tag" class="px-2 py-0.5 rounded-full text-xs text-slate-400 bg-slate-800/60">
-                        #{{ tag }}
-                      </span>
-                      <span v-if="record.intensity !== null" class="text-xs text-slate-500">強度: {{ record.intensity }}</span>
-                    </div>
-                    <div class="flex items-center gap-2 text-xs text-slate-600 shrink-0">
-                      <span>{{ record.date ?? record.createdAt.slice(0, 10) }}</span>
-                      <span v-if="record.sourceType" class="text-slate-700">
-                        {{ record.sourceType === 'chat_message' ? 'チャット' : '外部データ' }}
-                      </span>
-                    </div>
-                  </div>
-                  <p v-if="record.what" class="text-sm text-slate-200">{{ record.what }}</p>
-                  <p v-if="record.why" class="mt-1 text-xs text-slate-500">{{ record.why }}</p>
+              <div class="flex items-center gap-2 min-w-0">
+                <input type="checkbox" :checked="selectedIds.has(record.id)" class="accent-violet-500 w-4 h-4 shrink-0 cursor-pointer" @click.stop @change="toggleOne(record.id)">
+                <span v-if="record.polarity" :class="['shrink-0 px-1.5 py-0.5 rounded-full text-xs font-medium', polarityColor[record.polarity]]">
+                  {{ polarityLabel[record.polarity] }}
+                </span>
+                <span v-for="tag in parseTags(record.themeTags)" :key="tag" class="shrink-0 px-1.5 py-0.5 rounded-full text-xs text-slate-400 bg-slate-800/60">
+                  #{{ tag }}
+                </span>
+                <p v-if="record.what" class="flex-1 text-sm text-slate-200 truncate min-w-0">{{ record.what }}</p>
+                <button
+                  v-if="record.why"
+                  type="button"
+                  class="shrink-0 text-slate-600 hover:text-slate-400 transition-colors"
+                  @click.stop="toggleWhy(record.id)"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 transition-transform" :class="expandedWhys.has(record.id) ? 'rotate-180' : ''" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+                <div class="shrink-0 flex items-center gap-1.5 text-xs text-slate-600">
+                  <span>{{ shortDate(record.date, record.createdAt) }}</span>
+                  <span v-if="record.sourceType" class="text-slate-700">{{ shortSource(record.sourceType) }}</span>
                 </div>
               </div>
+              <p v-if="record.why && expandedWhys.has(record.id)" class="mt-1.5 pl-6 text-xs text-slate-500 leading-relaxed">{{ record.why }}</p>
             </div>
           </div>
         </div>

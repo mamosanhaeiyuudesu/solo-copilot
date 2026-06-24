@@ -7,11 +7,12 @@ import {
   extractionLogs,
   memorySnapshots,
   messages,
+  memos,
 } from '../../db/schema'
 import { extractIntermediateItems, splitIntoChunks } from '../../utils/extraction'
 
-// 全データ再抽出：既存の中間記憶・スナップショット・抽出ログを破棄し、
-// インポートファイルとチャットメッセージから新タグ体系で抽出し直す。
+// 全記憶を作り直す：既存の中間記憶・スナップショット・抽出ログを破棄し、
+// インポートファイル・チャットメッセージ・メモから再抽出する。
 export default defineEventHandler(async (event) => {
   const db = getDb(event)
   const claude = getClaudeClient(event)
@@ -21,7 +22,7 @@ export default defineEventHandler(async (event) => {
   await db.delete(extractionLogs).run()
   await db.delete(intermediateRecords).run()
 
-  const result = { files: 0, fileRecords: 0, chatRecords: 0 }
+  const result = { files: 0, memos: 0, fileRecords: 0, chatRecords: 0, memoRecords: 0 }
 
   // 2. インポートファイルを再抽出
   const files = await db.select().from(importedFiles)
@@ -96,6 +97,47 @@ export default defineEventHandler(async (event) => {
       })
     }
     result.chatRecords = items.length
+  }
+
+  // 4. メモを再抽出（1件ずつ処理）
+  const allMemos = await db.select().from(memos).orderBy(asc(memos.createdAt))
+  for (const memo of allMemos) {
+    try {
+      const contextualContent = memo.memoDate
+        ? `[参考期間: ${memo.memoDate}]\n---\n${memo.content}`
+        : memo.content
+      const chunks = splitIntoChunks(contextualContent)
+      const items = (await Promise.all(chunks.map(c => extractIntermediateItems(claude, c)))).flat()
+
+      let firstRecordId: string | null = null
+      for (const item of items) {
+        const id = crypto.randomUUID()
+        if (!firstRecordId) firstRecordId = id
+        await db.insert(intermediateRecords).values({
+          id,
+          sourceId: memo.id,
+          sourceType: 'memo',
+          date: item.date ?? memo.memoDate ?? null,
+          polarity: item.polarity,
+          themeTags: JSON.stringify(item.theme_tags),
+          what: item.what,
+          why: item.why ?? null,
+          intensity: Math.min(5, Math.max(1, Math.round(item.intensity))),
+        })
+      }
+      await db.insert(extractionLogs).values({
+        id: crypto.randomUUID(),
+        sourceId: memo.id,
+        sourceType: 'memo',
+        intermediateRecordId: firstRecordId,
+      }).onConflictDoNothing()
+      await db.update(memos).set({ status: 'done' }).where(eq(memos.id, memo.id))
+      result.memos++
+      result.memoRecords += items.length
+    }
+    catch {
+      await db.update(memos).set({ status: 'error' }).where(eq(memos.id, memo.id))
+    }
   }
 
   return result

@@ -40,8 +40,7 @@ export default defineEventHandler(async (event) => {
     const d = new Date(date)
     if (isNaN(d.getTime())) continue
     const mon = getMondayOf(d)
-    const sun = addDays(mon, 6)
-    if (sun < today) weekSet.add(toDateStr(mon))
+    if (mon <= today) weekSet.add(toDateStr(mon))
   }
 
   // 2. 時系列順に週次スナップショットを生成（generateWeeklySnapshot が冪等性を保証）
@@ -72,7 +71,7 @@ export default defineEventHandler(async (event) => {
 
   for (const key of monthsWithWeeklies) {
     const [y, m] = key.split('-').map(Number) as [number, number]
-    if (new Date(y, m, 0) >= today) continue // 月が未完了
+    if (new Date(y, m - 1, 1) > today) continue // 月がまだ始まっていない
     try {
       const created = await generateMonthlySnapshot(db, claude, y, m)
       if (created) result.monthly++
@@ -95,7 +94,7 @@ export default defineEventHandler(async (event) => {
   }
 
   for (const year of yearsWithMonthlies) {
-    if (new Date(year, 11, 31) >= today) continue // 年が未完了
+    if (new Date(year, 0, 1) > today) continue // 年がまだ始まっていない
     try {
       const created = await generateYearlySnapshot(db, claude, year)
       if (created) result.yearly++

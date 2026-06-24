@@ -11,9 +11,20 @@ export interface ExtractedItem {
 
 // 記憶のテーマタグ（固定）。当てはまらない出来事はタグ0個で記録する。
 export const THEME_TAG_LIST = [
-  '発明', '心理', '子育て', '剣道', '夫婦', '会社',
-  'AI', 'マーケティング', '転職', '親との関係', '節約', '地方創生',
+  '本業', '転職', '副業', 'AI', '心理', '家族', '剣道', '信仰',
 ] as const
+
+// タグの説明（AIプロンプト用）
+export const THEME_TAG_DESCRIPTIONS: Record<string, string> = {
+  本業: 'LINEヤフーでの仕事・業務・職場の人間関係・社内の出来事',
+  転職: '転職活動・キャリア変更の検討・求人・面接など',
+  副業: 'AOGUでの副業開発・プライベートでのアプリ開発・副業マーケティング活動',
+  AI: 'AIを活用した施策・AIツール・LLM関連の取り組み',
+  心理: '心理学・セラピー・セッション・人間の内面・感情・メンタル',
+  家族: '妻・親・子供に関すること・家庭内の出来事',
+  剣道: '自分の剣道・子供の剣道・稽古・試合・道場',
+  信仰: '神・祈り・宗教・スピリチュアル・信仰に関すること',
+}
 
 const TURNS_PER_CHUNK = 20
 const CHAR_LIMIT = 2500
@@ -69,7 +80,9 @@ export function splitIntoChunks(content: string): string[] {
   return chunks.map(chunk => header + chunk)
 }
 
-const THEME_TAGS = THEME_TAG_LIST.join('・')
+const THEME_TAGS = THEME_TAG_LIST
+  .map(tag => `・${tag}：${THEME_TAG_DESCRIPTIONS[tag]}`)
+  .join('\n')
 
 function buildPrompt(content: string): { system: string; user: string } {
   const isConversation = detectIsConversation(content)
@@ -101,7 +114,7 @@ polarity のルール:
 - negative: 不安・停滞・摩擦・疲労など否定的な観察
 - 中立的な観察（淡々とした決断・振り返り等）は、より近い方を選ぶ
 
-テーマタグ（theme_tags）リスト（この中からのみ選ぶ。無理に当てはめない）:
+テーマタグ（theme_tags）リスト（この中からのみ選ぶ。無理に当てはめない。0〜2個）:
 ${THEME_TAGS}
 
 intensity の基準:
